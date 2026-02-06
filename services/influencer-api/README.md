@@ -32,12 +32,7 @@ This is the backend API service for the Twist influencer staking system.
 
 3. Update `.env` with your configuration
 
-4. Run database migrations:
-   ```bash
-   npm run migration:run
-   ```
-
-5. Start the service:
+4. Start the service:
    ```bash
    npm run dev
    ```
@@ -46,18 +41,36 @@ This is the backend API service for the Twist influencer staking system.
 
 ### Staking
 
-- `GET /api/v1/staking/search` - Search influencers with filters
-- `GET /api/v1/staking/influencer/:id` - Get influencer staking details
-- `GET /api/v1/staking/user/:userId/stakes` - Get user's stakes
-- `POST /api/v1/staking/stake` - Stake on an influencer
-- `POST /api/v1/staking/unstake` - Unstake from an influencer
-- `POST /api/v1/staking/claim` - Claim pending rewards
+- `GET /staking/search` - Search influencers with filters
+- `GET /staking/influencer/:influencerId` - Get influencer staking details
+- `GET /staking/user/:userId/stakes` - Get user's stakes
+- `POST /staking/stake` - Stake on an influencer
+- `POST /staking/unstake` - Unstake from an influencer
+- `POST /staking/claim` - Claim pending rewards
 
 ### Influencers
 
-- `POST /api/v1/influencers/register` - Register new influencer
-- `GET /api/v1/influencers/:username` - Get influencer by username
-- `PUT /api/v1/influencers/:id/profile` - Update influencer profile
+- `POST /influencers/register` - Register new influencer
+- `GET /influencers/:username` - Get influencer by username
+- `PUT /influencers/:influencerId/profile` - Update influencer profile (JWT-protected)
+
+### Health
+
+- `GET /health`
+- `GET /ready`
+
+## Swagger
+
+Swagger is only enabled when `NODE_ENV != production`:
+
+- `GET /api/docs`
+
+## WebSockets
+
+Socket.IO namespaces:
+
+- `/staking` (staking events)
+- `/realtime` (misc real-time updates)
 
 ## Testing
 
@@ -86,3 +99,8 @@ This repo deploys backend services via Docker Compose on a VM:
 - VM runbook: `docs/operations/backend_oracle_always_free.md`
 
 Note: `services/influencer-api/Dockerfile` expects **repo-root** docker build context (it builds local packages under `packages/*`).
+
+## Production notes
+
+- Authentication is not yet consistently enforced across all controllers; harden before production use.
+- Several staking flows generate mock transaction ids; treat on-chain integration as incomplete unless verified.
