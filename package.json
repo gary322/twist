@@ -15,7 +15,7 @@
     "install:all": "npm install && cd services/influencer-api && npm install"
   },
   "devDependencies": {
-    "@jest/globals": "^29.7.0",
+    "@jest/globals": "^30.2.0",
     "@project-serum/anchor": "^0.26.0",
     "@solana/spl-token": "^0.3.11",
     "@solana/web3.js": "^1.98.2",
