@@ -5,6 +5,7 @@ import { RedisModule } from '@nestjs-modules/ioredis';
 import { BullModule } from '@nestjs/bull';
 import productionConfig from './config/production.config';
 import { CacheModule } from './modules/cache.module';
+import { AuthModule } from './modules/auth.module';
 import { InfluencerModule } from './modules/influencer.module';
 import { StakingModule } from './modules/staking.module';
 import { LinkModule } from './modules/link.module';
@@ -46,6 +47,7 @@ import { HealthController } from './controllers/health.controller';
       },
     }),
     CacheModule, // Import first as it's global
+    AuthModule, // Global JWT + request user context
     InfluencerModule,
     StakingModule,
     LinkModule,

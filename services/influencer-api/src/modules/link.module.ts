@@ -5,7 +5,6 @@ import { InfluencerLink, Influencer, InfluencerProfile } from '../entities';
 import { LinkService } from '../services/link.service';
 import { LinkController } from '../controllers/link.controller';
 import { TierManagementService } from '../services/tier-management.service';
-import { AuthGuard } from '../guards/auth.guard';
 import { RateLimitGuard } from '../guards/rate-limit.guard';
 
 @Module({
@@ -19,7 +18,6 @@ import { RateLimitGuard } from '../guards/rate-limit.guard';
   providers: [
     LinkService,
     TierManagementService,
-    AuthGuard,
     RateLimitGuard,
   ],
   exports: [LinkService],

@@ -8,15 +8,10 @@ import {
   UseGuards,
   Request,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { StakingService } from '../services/staking.service';
-
-interface AuthenticatedRequest extends Request {
-  user: {
-    userId: string;
-    wallet: string;
-  };
-}
+import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 
 @Controller('staking')
 export class StakingController {
@@ -51,20 +46,27 @@ export class StakingController {
   }
 
   @Get('user/:userId/stakes')
-  async getUserStakes(@Param('userId') userId: string) {
+  @UseGuards(JwtAuthGuard)
+  async getUserStakes(
+    @Request() req: any,
+    @Param('userId') userId: string,
+  ) {
+    if (!req.user?.isAdmin && req.user?.userId !== userId) {
+      throw new ForbiddenException('You can only view your own stakes');
+    }
     return this.stakingService.getUserStakes(userId);
   }
 
   @Post('stake')
+  @UseGuards(JwtAuthGuard)
   async stakeOnInfluencer(
+    @Request() req: any,
     @Body() body: {
       influencerId: string;
       amount: string;
-      userId: string;
-      wallet: string;
     },
   ) {
-    if (!body.influencerId || !body.amount || !body.userId || !body.wallet) {
+    if (!body.influencerId || !body.amount) {
       throw new BadRequestException('Missing required fields');
     }
 
@@ -74,23 +76,23 @@ export class StakingController {
     }
 
     return this.stakingService.stakeOnInfluencer({
-      userId: body.userId,
+      userId: req.user.userId,
       influencerId: body.influencerId,
       amount,
-      wallet: body.wallet,
+      wallet: req.user.walletAddress,
     });
   }
 
   @Post('unstake')
+  @UseGuards(JwtAuthGuard)
   async unstake(
+    @Request() req: any,
     @Body() body: {
       influencerId: string;
       amount: string;
-      userId: string;
-      wallet: string;
     },
   ) {
-    if (!body.influencerId || !body.amount || !body.userId || !body.wallet) {
+    if (!body.influencerId || !body.amount) {
       throw new BadRequestException('Missing required fields');
     }
 
@@ -100,29 +102,29 @@ export class StakingController {
     }
 
     return this.stakingService.unstake({
-      userId: body.userId,
+      userId: req.user.userId,
       influencerId: body.influencerId,
       amount,
-      wallet: body.wallet,
+      wallet: req.user.walletAddress,
     });
   }
 
   @Post('claim')
+  @UseGuards(JwtAuthGuard)
   async claimRewards(
+    @Request() req: any,
     @Body() body: {
       influencerId: string;
-      userId: string;
-      wallet: string;
     },
   ) {
-    if (!body.influencerId || !body.userId || !body.wallet) {
+    if (!body.influencerId) {
       throw new BadRequestException('Missing required fields');
     }
 
     return this.stakingService.claimRewards({
-      userId: body.userId,
+      userId: req.user.userId,
       influencerId: body.influencerId,
-      wallet: body.wallet,
+      wallet: req.user.walletAddress,
     });
   }
 }

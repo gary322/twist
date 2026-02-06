@@ -24,7 +24,7 @@ import {
   ConnectWalletDto,
   InfluencerResponseDto 
 } from '../dto/influencer.dto';
-import { AuthGuard } from '../guards/auth.guard';
+import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RateLimitGuard } from '../guards/rate-limit.guard';
 
 @ApiTags('Influencers')
@@ -105,7 +105,7 @@ export class InfluencerController {
   }
 
   @Put(':influencerId/profile')
-  @UseGuards(AuthGuard)
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update influencer profile' })
   @ApiResponse({ status: 200, description: 'Profile updated successfully' })
@@ -125,7 +125,7 @@ export class InfluencerController {
   }
 
   @Post(':influencerId/connect-wallet')
-  @UseGuards(AuthGuard)
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Connect Solana wallet to influencer account' })
   @ApiResponse({ status: 200, description: 'Wallet connected successfully' })
@@ -149,7 +149,7 @@ export class InfluencerController {
   }
 
   @Get(':influencerId/dashboard-stats')
-  @UseGuards(AuthGuard)
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get influencer dashboard statistics' })
   @ApiResponse({ status: 200, description: 'Dashboard stats', type: Object })
