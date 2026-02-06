@@ -104,7 +104,8 @@ describe('Security Worker', () => {
         'https://api.twist.io/file/../../../etc/passwd',
         'https://api.twist.io/download/..\\..\\windows\\system32\\config\\sam',
         'https://api.twist.io/static/%2e%2e%2f%2e%2e%2fetc/passwd',
-        'https://api.twist.io/assets/./././../config.json'
+        // Use encoded traversal sequences; fetch/URL normalizes raw `../` segments.
+        'https://api.twist.io/assets/%2e%2e%2fconfig.json'
       ];
 
       for (const url of pathTraversalUrls) {

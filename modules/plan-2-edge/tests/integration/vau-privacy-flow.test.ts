@@ -16,8 +16,12 @@ describe('VAU Processing with Privacy Features - User Journey', () => {
   };
 
   beforeEach(() => {
-    // Clear all mocks before each test
-    jest.clearAllMocks();
+    // Reset mock implementations between tests (important when using `mockResolvedValueOnce`)
+    mockEnv.BLOOM_FILTERS.put.mockReset();
+    mockEnv.BLOOM_FILTERS.get.mockReset();
+    mockEnv.KV.put.mockReset();
+    mockEnv.KV.get.mockReset();
+    mockEnv.KV.delete.mockReset();
   });
 
   describe('User Journey: First-time User with Privacy-Preserving Targeting', () => {

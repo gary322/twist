@@ -1,6 +1,23 @@
 // Security Rules Definition
 import { SecurityRule } from './types';
 
+function expandDecodings(value: string, maxDepth: number = 2): string[] {
+  const variants: string[] = [value];
+  let current = value;
+  for (let i = 0; i < maxDepth; i++) {
+    if (!current.includes('%')) break;
+    try {
+      const decoded = decodeURIComponent(current);
+      if (decoded === current) break;
+      variants.push(decoded);
+      current = decoded;
+    } catch {
+      break;
+    }
+  }
+  return variants;
+}
+
 export const securityRules: SecurityRule[] = [
   // SQL Injection patterns
   {
@@ -8,20 +25,25 @@ export const securityRules: SecurityRule[] = [
     name: 'SQL Injection Attempt',
     condition: (req) => {
       const url = new URL(req.url);
-      const params = url.searchParams.toString();
+      const values = Array.from(url.searchParams.values()).join(' ');
       const patterns = [
-        /(\%27)|(\')|(\-\-)|(\%23)|(#)/i,
-        /((\%3D)|(=))[^\n]*((\%27)|(\')|(\-\-)|(\%3B)|(;))/i,
-        /\w*((\%27)|(\'))((\%6F)|o|(\%4F))((\%72)|r|(\%52))/i,
-        /((\%27)|(\'))union/i,
-        /exec(\s|\+)+(s|x)p\w+/i,
-        /select.*from.*where/i,
-        /insert.*into.*values/i,
-        /delete.*from.*where/i,
-        /drop.*table/i,
-        /update.*set.*where/i
+        // Boolean-based injection patterns
+        /(?:'|\b)\s*(?:or|and)\s*(?:'?\w+'?\s*=\s*'?\w+'?|\d+\s*=\s*\d+)/i,
+        // UNION-based injection
+        /\bunion\b\s+(?:all\s+)?\bselect\b/i,
+        // Stacked queries / comment markers
+        /;\s*(?:select|insert|update|delete|drop|alter)\b/i,
+        /--|#|\/\*/i,
+        // Common DDL/DML sequences
+        /\bselect\b[\s\S]*\bfrom\b[\s\S]*\bwhere\b/i,
+        /\binsert\b[\s\S]*\binto\b[\s\S]*\bvalues\b/i,
+        /\bdelete\b[\s\S]*\bfrom\b[\s\S]*\bwhere\b/i,
+        /\bdrop\b[\s\S]*\btable\b/i,
+        /\bupdate\b[\s\S]*\bset\b[\s\S]*\bwhere\b/i,
+        // Dangerous stored procedure exec (SQL Server)
+        /\bexec\b[\s+]*(?:s|x)p\w+/i
       ];
-      return patterns.some(p => p.test(params));
+      return patterns.some(p => p.test(values));
     },
     action: 'block',
     severity: 'high'
@@ -33,12 +55,12 @@ export const securityRules: SecurityRule[] = [
     name: 'XSS Attempt',
     condition: (req) => {
       const url = new URL(req.url);
-      const params = url.searchParams.toString();
+      const values = Array.from(url.searchParams.values()).flatMap(v => expandDecodings(v)).join(' ');
       const patterns = [
         /<script[^>]*>.*?<\/script>/gi,
         /<iframe[^>]*>.*?<\/iframe>/gi,
         /javascript:/gi,
-        /on\w+\s*=/gi,
+        /<\w+[^>]*\son\w+\s*=/gi,
         /<img[^>]*onerror\s*=/gi,
         /<svg[^>]*onload\s*=/gi,
         /eval\s*\(/gi,
@@ -46,7 +68,7 @@ export const securityRules: SecurityRule[] = [
         /<embed[^>]*>/gi,
         /<object[^>]*>/gi
       ];
-      return patterns.some(p => p.test(params));
+      return patterns.some(p => p.test(values));
     },
     action: 'block',
     severity: 'high'
@@ -81,21 +103,26 @@ export const securityRules: SecurityRule[] = [
     name: 'Command Injection Attempt',
     condition: (req) => {
       const url = new URL(req.url);
-      const params = url.searchParams.toString();
-      const decodedParams = decodeURIComponent(params);
+      // Inspect both values and keys. Attack strings that include `&`/`&&` may be
+      // parsed by URLSearchParams as additional keys (not values).
+      const fragments: string[] = [];
+      for (const [key, value] of url.searchParams.entries()) {
+        fragments.push(key, value);
+      }
+      const haystack = fragments.join(' ');
       const patterns = [
-        /;|\||&|`|\$\(/,
+        /;|\|\||\||&&|`|\$\(/,
         /\${.*}/,
         />\s*\/dev\/null/,
-        /curl\s+/i,
-        /wget\s+/i,
-        /chmod\s+/i,
-        /nc\s+/i,
-        /bash\s+/i,
-        /sh\s+/i,
+        /\bcurl\b/i,
+        /\bwget\b/i,
+        /\bchmod\b/i,
+        /\bnc\b/i,
+        /\bbash\b/i,
+        /\bsh\b/i,
         /cmd\.exe/i
       ];
-      return patterns.some(p => p.test(params) || p.test(decodedParams));
+      return patterns.some(p => p.test(haystack));
     },
     action: 'block',
     severity: 'critical'
@@ -135,6 +162,8 @@ export const securityRules: SecurityRule[] = [
       const suspicious = [
         /sqlmap/i,
         /nikto/i,
+        /nmap/i,
+        /scripting engine/i,
         /scanner/i,
         /havij/i,
         /wget/i,
@@ -205,7 +234,7 @@ export const securityRules: SecurityRule[] = [
     name: 'LDAP Injection Attempt',
     condition: (req) => {
       const url = new URL(req.url);
-      const params = url.searchParams.toString();
+      const values = Array.from(url.searchParams.values()).join(' ');
       const patterns = [
         /\(|\)/g,
         /\*/g,
@@ -219,7 +248,7 @@ export const securityRules: SecurityRule[] = [
       ];
       
       // Check if multiple LDAP chars are present
-      const matches = patterns.filter(p => p.test(params)).length;
+      const matches = patterns.filter(p => p.test(values)).length;
       return matches >= 3;
     },
     action: 'block',
@@ -232,7 +261,7 @@ export const securityRules: SecurityRule[] = [
     name: 'XML Injection Attempt',
     condition: (req) => {
       const url = new URL(req.url);
-      const params = url.searchParams.toString();
+      const values = Array.from(url.searchParams.values()).join(' ');
       const patterns = [
         /<!DOCTYPE/i,
         /<!ENTITY/i,
@@ -243,7 +272,7 @@ export const securityRules: SecurityRule[] = [
         /expect:\/\//i,
         /data:\/\//i
       ];
-      return patterns.some(p => p.test(params));
+      return patterns.some(p => p.test(values));
     },
     action: 'block',
     severity: 'high'
@@ -255,8 +284,7 @@ export const securityRules: SecurityRule[] = [
     name: 'NoSQL Injection Attempt',
     condition: (req) => {
       const url = new URL(req.url);
-      const params = url.searchParams.toString();
-      const decodedParams = decodeURIComponent(params);
+      const values = Array.from(url.searchParams.values()).join(' ');
       const patterns = [
         /\$ne|\$eq|\$gt|\$gte|\$lt|\$lte|\$in|\$nin/g,
         /\$or|\$and|\$not|\$nor/g,
@@ -264,7 +292,7 @@ export const securityRules: SecurityRule[] = [
         /\$where|\$text|\$search/g,
         /{.*:.*{.*:.*}}/g
       ];
-      return patterns.some(p => p.test(params) || p.test(decodedParams));
+      return patterns.some(p => p.test(values));
     },
     action: 'block',
     severity: 'high'

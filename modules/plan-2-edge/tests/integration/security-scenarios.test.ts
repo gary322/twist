@@ -12,27 +12,44 @@ describe('Security Worker Integration - Attack Scenarios', () => {
   beforeAll(async () => {
     // Set up Miniflare environment
     mf = new Miniflare({
-      script: `
-        import worker from '../../workers/security-worker/src/index';
-        export default worker;
-      `,
-      modules: true,
+      // Only used to provide KV + R2 implementations for tests.
+      script: `addEventListener('fetch', (event) => event.respondWith(new Response('ok')));`,
       kvNamespaces: ['KV'],
       r2Buckets: ['AUDIT_LOGS'],
-      durableObjects: {
-        RATE_LIMITER: 'RateLimiter'
-      }
     });
+
+    // In-memory rate limiter for integration tests
+    const rateState = new Map<string, { count: number; resetAt: number }>();
 
     // Set up mock environment
     mockEnv = {
       RATE_LIMITER: {
-        idFromName: jest.fn().mockReturnValue('test-id'),
-        get: jest.fn().mockReturnValue({
-          fetch: jest.fn().mockResolvedValue(
-            new Response(JSON.stringify({ allowed: true }))
-          )
-        })
+        idFromName: jest.fn().mockImplementation((name: string) => name),
+        get: jest.fn().mockImplementation(() => ({
+          fetch: async (request: Request) => {
+            const { key, limit, window } = await request.json() as any;
+
+            const now = Date.now();
+            const existing = rateState.get(key);
+            if (!existing || existing.resetAt <= now) {
+              rateState.set(key, { count: 1, resetAt: now + window });
+              return new Response(JSON.stringify({ allowed: true }), {
+                headers: { 'Content-Type': 'application/json' }
+              });
+            }
+
+            if (existing.count >= limit) {
+              return new Response(JSON.stringify({ allowed: false }), {
+                headers: { 'Content-Type': 'application/json' }
+              });
+            }
+
+            existing.count++;
+            return new Response(JSON.stringify({ allowed: true }), {
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+        }))
       },
       AUDIT_LOGS: await mf.getR2Bucket('AUDIT_LOGS'),
       KV: await mf.getKVNamespace('KV'),
@@ -214,8 +231,10 @@ describe('Security Worker Integration - Attack Scenarios', () => {
         headers: {
           'Content-Type': 'application/json',
           'X-Forwarded-For': '192.168.1.1, 10.0.0.1, 172.16.0.1', // Multiple IPs
+          'X-Real-IP': '10.0.0.1',
+          'X-Client-IP': '172.16.0.1',
           'User-Agent': 'Mozilla/5.0 (custom-scanner/1.0)', // Suspicious UA
-          'Content-Length': '999999' // Large body
+          'Content-Length': '2097152' // 2MB
         },
         body: JSON.stringify({
           // Combination of different injection attempts

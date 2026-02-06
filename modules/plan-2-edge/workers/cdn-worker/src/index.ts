@@ -6,6 +6,7 @@ export interface Env {
   ASSETS: R2Bucket;
   CACHE: KVNamespace;
   ANALYTICS: AnalyticsEngineDataset;
+  PURGE_TOKEN?: string;
 }
 
 interface CacheConfig {
@@ -52,7 +53,7 @@ async function handleStaticAssets(
   const key = url.pathname.slice(1);
   
   // Check if asset exists in cache
-  const cache = caches.default;
+  const cache = (caches as any).default as Cache;
   let response = await cache.match(request);
   
   if (response) {
@@ -223,7 +224,7 @@ async function trackRequest(
       cf?.country || 'unknown',
     ],
     doubles: [1],
-    indexes: [cacheStatus === 'HIT' ? 1 : 0],
+    indexes: [cacheStatus === 'HIT' ? '1' : '0'],
   });
 }
 
@@ -251,13 +252,16 @@ async function handleAPIRequest(
   
   // Purge cache
   if (path === '/api/purge' && request.method === 'POST') {
+    if (!env.PURGE_TOKEN) {
+      return new Response('Purge not configured', { status: 501 });
+    }
     const auth = request.headers.get('Authorization');
     if (auth !== `Bearer ${env.PURGE_TOKEN}`) {
       return new Response('Unauthorized', { status: 401 });
     }
     
     const { keys } = await request.json() as { keys: string[] };
-    const cache = caches.default;
+    const cache = (caches as any).default as Cache;
     
     const results = await Promise.all(
       keys.map(async (key) => {
@@ -328,10 +332,10 @@ async function handleHealthCheck(env: Env): Promise<Response> {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
-  } catch (error) {
+  } catch (error: unknown) {
     return new Response(JSON.stringify({
       status: 'unhealthy',
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
     }), {
       status: 503,
       headers: { 'Content-Type': 'application/json' },

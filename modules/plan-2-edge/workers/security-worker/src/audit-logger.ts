@@ -38,6 +38,11 @@ export class AuditLogger {
   }
 
   private async sendAlert(event: SecurityEvent): Promise<void> {
+    // Avoid paging in non-production environments.
+    if (this.env.ENVIRONMENT && this.env.ENVIRONMENT !== 'production') {
+      return;
+    }
+
     // Check if PagerDuty is configured
     if (!this.env.PAGERDUTY_TOKEN || !this.env.PAGERDUTY_ROUTING_KEY) {
       console.warn('PagerDuty not configured, skipping alert');

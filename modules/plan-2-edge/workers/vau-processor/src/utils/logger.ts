@@ -15,15 +15,15 @@ export class WorkerLogger {
       data
     };
 
-    // In production, send to monitoring service
-    // For Cloudflare Workers, we can use structured logging
-    if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
-      logger.log(`[${timestamp}] [${level}] ${message}`, data || '');
-    } else {
-      // In production, emit structured logs
-      // Cloudflare Workers will capture these
-      logger.log(JSON.stringify(logEntry));
+    // Cloudflare Workers capture console output. Use structured logs in prod-like environments
+    // and a more readable format in local/dev runs.
+    const isLocalDev = typeof process !== 'undefined' && process.env?.NODE_ENV === 'development';
+    if (isLocalDev) {
+      console.log(`[${timestamp}] [${level}] ${message}`, data ?? '');
+      return;
     }
+
+    console.log(JSON.stringify(logEntry));
   }
 
   info(message: string, data?: any): void {

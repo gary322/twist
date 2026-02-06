@@ -1,33 +1,6 @@
 // Deterministic tests for Bloom Filter implementation
 import { BloomFilter, CohortTargeting, SaltRotator } from '../../workers/vau-processor/src/utils/bloom';
 
-// Mock crypto.subtle.digest with deterministic output
-const mockDigest = async (algorithm: string, data: ArrayBuffer | Uint8Array): Promise<ArrayBuffer> => {
-  const dataArray = new Uint8Array(data);
-  const hash = new Uint8Array(32);
-  
-  // Simple deterministic hash based on input
-  let sum = 0;
-  for (let i = 0; i < dataArray.length; i++) {
-    sum = (sum + dataArray[i] * (i + 1)) % 256;
-  }
-  
-  // Fill hash with deterministic values
-  for (let i = 0; i < 32; i++) {
-    hash[i] = (sum * (i + 1)) % 256;
-  }
-  
-  return hash.buffer;
-};
-
-// Override crypto.subtle.digest globally for tests
-(global as any).crypto = {
-  ...global.crypto,
-  subtle: {
-    digest: mockDigest
-  }
-};
-
 describe('BloomFilter with deterministic hashing', () => {
   let filter: BloomFilter;
 
