@@ -9,7 +9,7 @@
     "clean": "rm -rf dist"
   },
   "devDependencies": {
-    "@types/node": "^20.11.30",
+    "@types/node": "^25.2.1",
     "typescript": "^5.1.3"
   }
 }
