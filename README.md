@@ -62,8 +62,8 @@ flowchart LR
   VAU --> R2
   VAU --> Q
 
-  Web -->|optional wallet auth (JWT)| Auth
-  Mobile -->|optional wallet auth (JWT)| Auth
+  Web -->|optional wallet auth JWT| Auth
+  Mobile -->|optional wallet auth JWT| Auth
   Web -->|staking / influencer APIs| API
   Mobile -->|staking / influencer APIs| API
 
