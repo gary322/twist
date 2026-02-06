@@ -1,0 +1,54 @@
+
+# Production
+.env
+.env.local
+.env.production
+*.pem
+*.key
+*.cert
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+target/
+
+# Logs
+logs/
+*.log
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# E2E / test artifacts (generated)
+MVP/testing/user-simulation/screenshots/
+MVP/testing/user-simulation/test-results/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# AI tooling (local-only)
+.claude/
+
+# Dependencies
+node_modules/
+bower_components/
+
+# Temporary
+tmp/
+temp/
+*.tmp
+*.bak
+
+# Secrets
+secrets/
+*.secret
