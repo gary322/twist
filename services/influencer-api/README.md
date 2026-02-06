@@ -13,7 +13,7 @@ This is the backend API service for the Twist influencer staking system.
 
 ## Prerequisites
 
-- Node.js 18+
+- Node.js 20+
 - PostgreSQL 14+
 - Redis 6+
 - Solana RPC access
@@ -80,4 +80,9 @@ npm run build
 
 ## Deployment
 
-The service is containerized and can be deployed to Kubernetes. See `/k8s/influencer-api.yaml` for the deployment configuration.
+This repo deploys backend services via Docker Compose on a VM:
+
+- Compose: `docker-compose.backend.yml`
+- VM runbook: `docs/operations/backend_oracle_always_free.md`
+
+Note: `services/influencer-api/Dockerfile` expects **repo-root** docker build context (it builds local packages under `packages/*`).

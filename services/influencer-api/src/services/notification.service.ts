@@ -8,7 +8,7 @@ import { Queue } from 'bull';
 import * as sgMail from '@sendgrid/mail';
 import * as admin from 'firebase-admin';
 import { Notification, NotificationType, RecipientType, NotificationPreference, Influencer } from '../entities';
-import { SECRETS } from '../mocks/config.mock';
+import { SECRETS } from '../config/secrets';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface NotificationPayload {

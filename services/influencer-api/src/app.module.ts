@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RedisModule } from '@nestjs-modules/ioredis';
 import { BullModule } from '@nestjs/bull';
+import productionConfig from './config/production.config';
 import { CacheModule } from './modules/cache.module';
 import { InfluencerModule } from './modules/influencer.module';
 import { StakingModule } from './modules/staking.module';
@@ -14,6 +16,10 @@ import { HealthController } from './controllers/health.controller';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [productionConfig],
+    }),
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: process.env.DB_HOST || 'localhost',

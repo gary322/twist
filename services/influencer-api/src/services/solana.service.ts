@@ -6,50 +6,61 @@ import {
   Transaction,
   SystemProgram,
   LAMPORTS_PER_SOL,
-  sendAndConfirmTransaction,
   Keypair,
 } from '@solana/web3.js';
 import { Program, AnchorProvider, web3, BN } from '@project-serum/anchor';
 import { IDL } from '../programs/twist_staking';
 import { RedisService } from './redis.service';
+import bs58 from 'bs58';
+import nacl from 'tweetnacl';
 
 @Injectable()
 export class SolanaService {
   private readonly logger = new Logger(SolanaService.name);
   private connection: Connection;
-  private program: Program;
-  private provider: AnchorProvider;
+  private program: Program | null = null;
+  private provider: AnchorProvider | null = null;
 
   constructor(
     private configService: ConfigService,
     private redisService: RedisService,
   ) {
-    this.initializeConnection();
+    void this.initializeConnection();
   }
 
   private async initializeConnection() {
-    const rpcUrl = this.configService.get<string>('SOLANA_RPC_URL');
-    const programId = this.configService.get<string>('STAKING_PROGRAM_ID');
-    
+    const rpcUrl =
+      this.configService.get<string>('SOLANA_RPC_URL') || 'https://api.mainnet-beta.solana.com';
     this.connection = new Connection(rpcUrl, 'confirmed');
-    
-    // Initialize Anchor provider
-    const wallet = this.loadWallet();
-    this.provider = new AnchorProvider(
-      this.connection,
-      wallet,
-      { commitment: 'confirmed' }
-    );
-    
-    this.program = new Program(
-      IDL,
-      new PublicKey(programId),
-      this.provider
-    );
+
+    const programId = this.configService.get<string>('STAKING_PROGRAM_ID');
+    const privateKey = this.configService.get<string>('WALLET_PRIVATE_KEY');
+    if (!programId || !privateKey) {
+      this.logger.warn(
+        'Solana program not configured (missing STAKING_PROGRAM_ID and/or WALLET_PRIVATE_KEY)',
+      );
+      this.program = null;
+      this.provider = null;
+      return;
+    }
+
+    try {
+      // Initialize Anchor provider
+      const wallet = this.loadWallet();
+      this.provider = new AnchorProvider(this.connection, wallet, { commitment: 'confirmed' });
+      this.program = new Program(IDL, new PublicKey(programId), this.provider);
+      this.logger.log('Solana program initialized');
+    } catch (err) {
+      this.logger.error(
+        `Failed to initialize Solana program: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      this.program = null;
+      this.provider = null;
+    }
   }
 
   private loadWallet(): any {
-    const privateKey = this.configService.get<string>('WALLET_PRIVATE_KEY');
+    const privateKey = this.configService.get<string>('WALLET_PRIVATE_KEY') || '';
     const secretKey = Uint8Array.from(JSON.parse(privateKey));
     const keypair = Keypair.fromSecretKey(secretKey);
     
@@ -66,27 +77,31 @@ export class SolanaService {
     };
   }
 
-  async createStakingPool(
-    influencerId: string,
-    revenueShare: number,
-    minStake: string,
-  ): Promise<{ poolAddress: string; transactionId: string }> {
+  async createStakingPool(params: {
+    influencer: PublicKey;
+    revenueShareBps: number;
+    minStake: number | bigint;
+  }): Promise<PublicKey> {
     try {
+      if (!this.program || !this.provider) {
+        throw new Error('Solana staking program is not configured');
+      }
+
       // Generate pool PDA
       const [poolPda] = await PublicKey.findProgramAddress(
         [
           Buffer.from('staking_pool'),
-          Buffer.from(influencerId),
+          params.influencer.toBuffer(),
         ],
-        this.program.programId
+        this.program.programId,
       );
 
       // Create the staking pool on-chain
       const tx = await this.program.methods
         .createPool(
-          influencerId,
-          new BN(revenueShare),
-          new BN(minStake),
+          params.influencer,
+          new BN(params.revenueShareBps),
+          new BN(params.minStake.toString()),
         )
         .accounts({
           pool: poolPda,
@@ -97,22 +112,19 @@ export class SolanaService {
 
       // Cache pool data
       await this.redisService.set(
-        `pool:${influencerId}`,
+        `pool:${params.influencer.toString()}`,
         JSON.stringify({
           address: poolPda.toString(),
-          revenueShare,
-          minStake,
+          revenueShareBps: params.revenueShareBps,
+          minStake: params.minStake.toString(),
           createdAt: new Date().toISOString(),
+          transactionId: tx,
         }),
         3600 // 1 hour cache
       );
 
-      this.logger.log(`Created staking pool for influencer ${influencerId}: ${poolPda.toString()}`);
-
-      return {
-        poolAddress: poolPda.toString(),
-        transactionId: tx,
-      };
+      this.logger.log(`Created staking pool: ${poolPda.toString()}`);
+      return poolPda;
     } catch (error) {
       this.logger.error(`Failed to create staking pool: ${error.message}`);
       throw error;
@@ -121,6 +133,10 @@ export class SolanaService {
 
   async getPoolData(poolAddress: string): Promise<any> {
     try {
+      if (!this.program) {
+        throw new Error('Solana staking program is not configured');
+      }
+
       // Check cache first
       const cached = await this.redisService.get(`pool:data:${poolAddress}`);
       if (cached) {
@@ -157,12 +173,54 @@ export class SolanaService {
     }
   }
 
+  async getStakingPool(poolAddress: string): Promise<any> {
+    return await this.getPoolData(poolAddress);
+  }
+
+  async validateWalletAddress(walletAddress: string): Promise<boolean> {
+    try {
+      // PublicKey constructor validates base58 + length.
+      // eslint-disable-next-line no-new
+      new PublicKey(walletAddress);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async verifyWalletSignature(walletAddress: string, message: string, signature: string): Promise<boolean> {
+    try {
+      const publicKeyBytes = bs58.decode(walletAddress);
+      const messageBytes = Buffer.from(message, 'utf8');
+
+      let signatureBytes: Uint8Array;
+      try {
+        signatureBytes = bs58.decode(signature);
+      } catch {
+        signatureBytes = Uint8Array.from(Buffer.from(signature, 'base64'));
+      }
+
+      if (publicKeyBytes.length !== 32 || signatureBytes.length !== nacl.sign.signatureLength) {
+        return false;
+      }
+
+      return nacl.sign.detached.verify(messageBytes, signatureBytes, publicKeyBytes);
+    } catch (err) {
+      this.logger.warn(`Signature verification failed: ${err instanceof Error ? err.message : String(err)}`);
+      return false;
+    }
+  }
+
   async stake(
     userWallet: string,
     poolAddress: string,
     amount: string,
   ): Promise<string> {
     try {
+      if (!this.program) {
+        throw new Error('Solana staking program is not configured');
+      }
+
       const userPubkey = new PublicKey(userWallet);
       const poolPubkey = new PublicKey(poolAddress);
       const amountBN = new BN(amount);
@@ -201,6 +259,10 @@ export class SolanaService {
     amount: string,
   ): Promise<string> {
     try {
+      if (!this.program) {
+        throw new Error('Solana staking program is not configured');
+      }
+
       const userPubkey = new PublicKey(userWallet);
       const poolPubkey = new PublicKey(poolAddress);
       const amountBN = new BN(amount);
@@ -237,6 +299,10 @@ export class SolanaService {
     poolAddress: string,
   ): Promise<string> {
     try {
+      if (!this.program) {
+        throw new Error('Solana staking program is not configured');
+      }
+
       const userPubkey = new PublicKey(userWallet);
       const poolPubkey = new PublicKey(poolAddress);
 
@@ -272,6 +338,10 @@ export class SolanaService {
     amount: string,
   ): Promise<string> {
     try {
+      if (!this.program || !this.provider) {
+        throw new Error('Solana staking program is not configured');
+      }
+
       const poolPubkey = new PublicKey(poolAddress);
       const amountBN = new BN(amount);
 

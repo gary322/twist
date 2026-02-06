@@ -110,7 +110,7 @@ export class InfluencerQueueProcessor {
     try {
       // Publish to event bus (could be Kafka, RabbitMQ, etc.)
       // For now, just log it
-      this.logger.log(`Publishing event: ${message.topic}`, message.data);
+      this.logger.log(`Publishing event: ${message.type}`, message.data);
       
       // Here you would typically:
       // 1. Publish to a message broker
@@ -119,7 +119,7 @@ export class InfluencerQueueProcessor {
       // 4. Update real-time dashboards via WebSocket
       
     } catch (error) {
-      this.logger.error(`Failed to publish event ${message.topic}`, error);
+      this.logger.error(`Failed to publish event ${message.type}`, error);
     }
   }
 

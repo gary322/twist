@@ -2,7 +2,7 @@ import { Injectable, CanActivate, ExecutionContext, Logger } from '@nestjs/commo
 import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../services/redis.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { MoreThanOrEqual, Repository } from 'typeorm';
 import { Attribution } from '../entities/attribution.entity';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
@@ -78,8 +78,11 @@ export class FraudDetectionGuard implements CanActivate {
   private async getIPReputation(ip: string): Promise<any> {
     try {
       const apiKey = this.configService.get<string>('IP_QUALITY_SCORE_API_KEY');
+      if (!apiKey) {
+        return { isVPN: false, isProxy: false, threatScore: 0, country: 'US' };
+      }
       const response = await firstValueFrom(
-        this.httpService.get(`https://ipqualityscore.com/api/json/ip/${apiKey}/${ip}`)
+        this.httpService.get<any>(`https://ipqualityscore.com/api/json/ip/${apiKey}/${ip}`)
       );
 
       return {
@@ -183,7 +186,7 @@ export class FraudDetectionGuard implements CanActivate {
     return this.attributionRepository.find({
       where: {
         userId,
-        createdAt: { $gte: thirtyDaysAgo } as any,
+        createdAt: MoreThanOrEqual(thirtyDaysAgo),
       },
       order: { createdAt: 'DESC' },
       take: 100,
@@ -281,7 +284,7 @@ export class FraudDetectionGuard implements CanActivate {
   private async getLocationFromIP(ip: string): Promise<any> {
     try {
       const response = await firstValueFrom(
-        this.httpService.get(`https://ipapi.co/${ip}/json/`)
+        this.httpService.get<any>(`https://ipapi.co/${ip}/json/`)
       );
 
       return {
@@ -317,6 +320,13 @@ export class FraudDetectionGuard implements CanActivate {
   }
 
   private async logSuspiciousActivity(request: any, fraudScore: number) {
+    const safeHeaders = {
+      'user-agent': request.headers?.['user-agent'],
+      'accept-language': request.headers?.['accept-language'],
+      'cf-connecting-ip': request.headers?.['cf-connecting-ip'],
+      'x-forwarded-for': request.headers?.['x-forwarded-for'],
+    };
+
     const log = {
       timestamp: new Date().toISOString(),
       ip: request.ip,
@@ -324,8 +334,11 @@ export class FraudDetectionGuard implements CanActivate {
       endpoint: request.url,
       method: request.method,
       fraudScore,
-      headers: request.headers,
-      body: request.body,
+      headers: safeHeaders,
+      body: {
+        campaignId: request.body?.campaignId,
+        attributionType: request.body?.type,
+      },
     };
 
     await this.redisService.lpush('fraud:suspicious', JSON.stringify(log));

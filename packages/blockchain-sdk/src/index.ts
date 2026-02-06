@@ -6,6 +6,11 @@ export class TwistTokenClient {
     return 0;
   }
 
+  async transfer(params: { recipient: PublicKey; amount: bigint; memo?: string }): Promise<string> {
+    // Mock implementation - replace with SPL token transfer in production.
+    return `${Date.now()}-transfer-tx`;
+  }
+
   async stakeOnInfluencer(params: {
     poolAddress: PublicKey;
     amount: bigint;

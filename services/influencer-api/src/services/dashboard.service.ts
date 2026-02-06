@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { MoreThanOrEqual, Repository } from 'typeorm';
 import { Influencer } from '../entities/influencer.entity';
-import { Attribution } from '../entities/attribution.entity';
-import { Payout } from '../entities/payout.entity';
+import { Attribution, AttributionStatus, AttributionType } from '../entities/attribution.entity';
+import { InfluencerPayout, InfluencerPayoutStatus } from '../entities/influencer-payout.entity';
 import { RedisService } from './redis.service';
 import { SolanaService } from './solana.service';
 
@@ -14,8 +14,8 @@ export class DashboardService {
     private influencerRepository: Repository<Influencer>,
     @InjectRepository(Attribution)
     private attributionRepository: Repository<Attribution>,
-    @InjectRepository(Payout)
-    private payoutRepository: Repository<Payout>,
+    @InjectRepository(InfluencerPayout)
+    private payoutRepository: Repository<InfluencerPayout>,
     private redisService: RedisService,
     private solanaService: SolanaService,
   ) {}
@@ -43,8 +43,13 @@ export class DashboardService {
 
     // Calculate time-based metrics
     const now = new Date();
-    const startOfDay = new Date(now.setHours(0, 0, 0, 0));
-    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     // Aggregate attribution data
@@ -58,19 +63,19 @@ export class DashboardService {
       this.attributionRepository.count({
         where: { 
           influencerId,
-          createdAt: { $gte: startOfDay } as any
+          createdAt: MoreThanOrEqual(startOfDay),
         }
       }),
       this.attributionRepository.count({
         where: { 
           influencerId,
-          createdAt: { $gte: startOfWeek } as any
+          createdAt: MoreThanOrEqual(startOfWeek),
         }
       }),
       this.attributionRepository.count({
         where: { 
           influencerId,
-          createdAt: { $gte: startOfMonth } as any
+          createdAt: MoreThanOrEqual(startOfMonth),
         }
       }),
     ]);
@@ -91,7 +96,7 @@ export class DashboardService {
     // Get payout history
     const recentPayouts = await this.payoutRepository.find({
       where: { influencerId },
-      order: { createdAt: 'DESC' },
+      order: { requestedAt: 'DESC' },
       take: 10,
     });
 
@@ -152,7 +157,7 @@ export class DashboardService {
     const query = this.attributionRepository
       .createQueryBuilder('attribution')
       .where('attribution.influencerId = :influencerId', { influencerId })
-      .andWhere('attribution.status = :status', { status: 'completed' });
+      .andWhere('attribution.status = :status', { status: AttributionStatus.COMPLETED });
 
     if (startDate) {
       query.andWhere('attribution.createdAt >= :startDate', { startDate });
@@ -169,7 +174,7 @@ export class DashboardService {
     const result = await this.attributionRepository
       .createQueryBuilder('attribution')
       .where('attribution.influencerId = :influencerId', { influencerId })
-      .andWhere('attribution.status = :status', { status: 'pending' })
+      .andWhere('attribution.status = :status', { status: AttributionStatus.PENDING })
       .select('SUM(attribution.earnings)', 'total')
       .getRawOne();
 
@@ -179,10 +184,10 @@ export class DashboardService {
   private async calculateConversionRate(influencerId: string): Promise<number> {
     const [clicks, conversions] = await Promise.all([
       this.attributionRepository.count({
-        where: { influencerId, type: 'click' }
+        where: { influencerId, type: AttributionType.CLICK }
       }),
       this.attributionRepository.count({
-        where: { influencerId, type: 'conversion' }
+        where: { influencerId, type: AttributionType.CONVERSION }
       }),
     ]);
 
@@ -193,7 +198,7 @@ export class DashboardService {
     const result = await this.attributionRepository
       .createQueryBuilder('attribution')
       .where('attribution.influencerId = :influencerId', { influencerId })
-      .andWhere('attribution.status = :status', { status: 'completed' })
+      .andWhere('attribution.status = :status', { status: AttributionStatus.COMPLETED })
       .select('COUNT(DISTINCT attribution.userId)', 'users')
       .addSelect('SUM(attribution.earnings)', 'revenue')
       .getRawOne();
@@ -205,10 +210,10 @@ export class DashboardService {
     // Calculate based on clicks vs impressions
     const [impressions, clicks] = await Promise.all([
       this.attributionRepository.count({
-        where: { influencerId, type: 'impression' }
+        where: { influencerId, type: AttributionType.IMPRESSION }
       }),
       this.attributionRepository.count({
-        where: { influencerId, type: 'click' }
+        where: { influencerId, type: AttributionType.CLICK }
       }),
     ]);
 
@@ -234,7 +239,7 @@ export class DashboardService {
     const result = await this.payoutRepository
       .createQueryBuilder('payout')
       .where('payout.influencerId = :influencerId', { influencerId })
-      .andWhere('payout.status = :status', { status: 'completed' })
+      .andWhere('payout.status = :status', { status: InfluencerPayoutStatus.COMPLETED })
       .select('SUM(payout.amount)', 'total')
       .getRawOne();
 
@@ -244,13 +249,13 @@ export class DashboardService {
   private async getNextPayoutDate(influencerId: string): Promise<Date> {
     // Calculate next payout date based on payout schedule
     const lastPayout = await this.payoutRepository.findOne({
-      where: { influencerId, status: 'completed' },
-      order: { createdAt: 'DESC' },
+      where: { influencerId, status: InfluencerPayoutStatus.COMPLETED },
+      order: { requestedAt: 'DESC' },
     });
 
     const nextDate = new Date();
     if (lastPayout) {
-      nextDate.setDate(lastPayout.createdAt.getDate() + 30); // Monthly payouts
+      nextDate.setDate(lastPayout.requestedAt.getDate() + 30); // Monthly payouts
     } else {
       nextDate.setDate(nextDate.getDate() + 30);
     }
@@ -271,7 +276,7 @@ export class DashboardService {
     return this.attributionRepository.count({
       where: { 
         referrerId: influencerId,
-        createdAt: { $gte: thirtyDaysAgo } as any
+        createdAt: MoreThanOrEqual(thirtyDaysAgo),
       }
     });
   }
@@ -280,7 +285,7 @@ export class DashboardService {
     const result = await this.attributionRepository
       .createQueryBuilder('attribution')
       .where('attribution.referrerId = :influencerId', { influencerId })
-      .andWhere('attribution.status = :status', { status: 'completed' })
+      .andWhere('attribution.status = :status', { status: AttributionStatus.COMPLETED })
       .select('SUM(attribution.referralEarnings)', 'total')
       .getRawOne();
 

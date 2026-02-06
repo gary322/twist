@@ -1,46 +1,44 @@
-# Build stage
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-COPY tsconfig*.json ./
+# Copy manifests first for better caching. This Dockerfile expects repo-root build context.
+COPY packages/messages/package.json packages/messages/package-lock.json packages/messages/tsconfig.json ./packages/messages/
+COPY packages/blockchain-sdk/package.json packages/blockchain-sdk/package-lock.json packages/blockchain-sdk/tsconfig.json ./packages/blockchain-sdk/
+COPY services/influencer-api/package.json services/influencer-api/package-lock.json services/influencer-api/tsconfig*.json ./services/influencer-api/
 
-# Install dependencies
-RUN npm ci --only=production
+RUN npm --prefix packages/messages ci
+COPY packages/messages/src ./packages/messages/src
+RUN npm --prefix packages/messages run build
 
-# Copy source code (mocks excluded by .dockerignore)
-COPY src ./src
+RUN npm --prefix packages/blockchain-sdk ci
+COPY packages/blockchain-sdk/src ./packages/blockchain-sdk/src
+RUN npm --prefix packages/blockchain-sdk run build
 
-# Build application
-RUN npm run build
+RUN npm --prefix services/influencer-api ci
+COPY services/influencer-api/src ./services/influencer-api/src
+COPY services/influencer-api/migrations ./services/influencer-api/migrations
+RUN npm --prefix services/influencer-api run build
 
-# Production stage
-FROM node:18-alpine
+# Keep runtime images smaller by pruning devDependencies.
+RUN npm --prefix services/influencer-api prune --omit=dev
+RUN npm --prefix packages/messages prune --omit=dev
+RUN npm --prefix packages/blockchain-sdk prune --omit=dev
+
+FROM node:20-alpine
 
 WORKDIR /app
 
-# Install dumb-init for proper signal handling
 RUN apk add --no-cache dumb-init
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
+COPY --from=builder --chown=nodejs:nodejs /app/services/influencer-api ./services/influencer-api
+COPY --from=builder --chown=nodejs:nodejs /app/packages/messages ./packages/messages
+COPY --from=builder --chown=nodejs:nodejs /app/packages/blockchain-sdk ./packages/blockchain-sdk
 
-# Copy built application
-COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
-COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
-COPY --chown=nodejs:nodejs package*.json ./
-
-# Switch to non-root user
 USER nodejs
 
-# Expose port
 EXPOSE 3000
-
-# Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
-
-# Start application
+WORKDIR /app/services/influencer-api
 CMD ["node", "dist/main.js"]

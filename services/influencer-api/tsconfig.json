@@ -18,10 +18,7 @@
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
     "paths": {
-      "@/*": ["src/*"],
-      "@twist/blockchain-sdk": ["src/mocks/blockchain-sdk.mock.ts"],
-      "@twist/messages": ["src/mocks/messages.mock.ts"],
-      "@twist/config/secrets": ["src/mocks/secrets.mock.ts"]
+      "@/*": ["src/*"]
     }
   },
   "exclude": ["node_modules", "dist", "tests"]

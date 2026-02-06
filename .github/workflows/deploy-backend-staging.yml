@@ -1,0 +1,146 @@
+name: Deploy Backend (Staging)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - docker-compose.backend.yml
+      - services/**
+      - packages/messages/**
+      - packages/blockchain-sdk/**
+      - .github/workflows/deploy-backend-staging.yml
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-backend-staging
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify required secrets
+        env:
+          BACKEND_DEPLOY_HOST: ${{ secrets.BACKEND_DEPLOY_HOST }}
+          BACKEND_DEPLOY_USER: ${{ secrets.BACKEND_DEPLOY_USER }}
+          BACKEND_DEPLOY_PATH: ${{ secrets.BACKEND_DEPLOY_PATH }}
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          BACKEND_DB_PASSWORD: ${{ secrets.BACKEND_DB_PASSWORD }}
+          BACKEND_REDIS_PASSWORD: ${{ secrets.BACKEND_REDIS_PASSWORD }}
+          BACKEND_JWT_SECRET: ${{ secrets.BACKEND_JWT_SECRET }}
+        run: |
+          set -euo pipefail
+          : "${BACKEND_DEPLOY_HOST:?Missing BACKEND_DEPLOY_HOST}"
+          : "${BACKEND_DEPLOY_USER:?Missing BACKEND_DEPLOY_USER}"
+          : "${BACKEND_DEPLOY_PATH:?Missing BACKEND_DEPLOY_PATH}"
+          : "${DEPLOY_SSH_PRIVATE_KEY:?Missing DEPLOY_SSH_PRIVATE_KEY}"
+          : "${BACKEND_DB_PASSWORD:?Missing BACKEND_DB_PASSWORD}"
+          : "${BACKEND_REDIS_PASSWORD:?Missing BACKEND_REDIS_PASSWORD}"
+          : "${BACKEND_JWT_SECRET:?Missing BACKEND_JWT_SECRET}"
+
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          BACKEND_DEPLOY_HOST: ${{ secrets.BACKEND_DEPLOY_HOST }}
+          BACKEND_DEPLOY_PORT: ${{ secrets.BACKEND_DEPLOY_PORT }}
+          BACKEND_DEPLOY_KNOWN_HOSTS: ${{ secrets.BACKEND_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+          if [[ -n "${BACKEND_DEPLOY_KNOWN_HOSTS:-}" ]]; then
+            printf '%s\n' "$BACKEND_DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            port="${BACKEND_DEPLOY_PORT:-22}"
+            ssh-keyscan -p "$port" -H "$BACKEND_DEPLOY_HOST" > ~/.ssh/known_hosts
+          fi
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Build deployment bundle
+        run: |
+          set -euo pipefail
+          tar -czf backend-bundle.tgz \
+            --exclude='**/node_modules' \
+            --exclude='**/dist' \
+            .dockerignore \
+            docker-compose.backend.yml \
+            services/auth-service \
+            services/influencer-api \
+            packages/messages \
+            packages/blockchain-sdk
+
+      - name: Upload bundle + env file
+        env:
+          BACKEND_DEPLOY_HOST: ${{ secrets.BACKEND_DEPLOY_HOST }}
+          BACKEND_DEPLOY_PORT: ${{ secrets.BACKEND_DEPLOY_PORT }}
+          BACKEND_DEPLOY_USER: ${{ secrets.BACKEND_DEPLOY_USER }}
+          BACKEND_DEPLOY_PATH: ${{ secrets.BACKEND_DEPLOY_PATH }}
+          BACKEND_DB_USERNAME: ${{ secrets.BACKEND_DB_USERNAME }}
+          BACKEND_DB_PASSWORD: ${{ secrets.BACKEND_DB_PASSWORD }}
+          BACKEND_DB_NAME: ${{ secrets.BACKEND_DB_NAME }}
+          BACKEND_REDIS_PASSWORD: ${{ secrets.BACKEND_REDIS_PASSWORD }}
+          BACKEND_JWT_SECRET: ${{ secrets.BACKEND_JWT_SECRET }}
+          BACKEND_ALLOWED_ORIGINS: ${{ secrets.BACKEND_ALLOWED_ORIGINS }}
+          SOLANA_RPC_ENDPOINT: ${{ secrets.SOLANA_RPC_ENDPOINT }}
+          TWIST_PROGRAM_ID: ${{ secrets.TWIST_PROGRAM_ID }}
+          BACKEND_WALLET_PRIVATE_KEY: ${{ secrets.BACKEND_WALLET_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          port="${BACKEND_DEPLOY_PORT:-22}"
+
+          db_user="${BACKEND_DB_USERNAME:-twist}"
+          db_name="${BACKEND_DB_NAME:-twist_influencer}"
+          allowed_origins="${BACKEND_ALLOWED_ORIGINS:-}"
+          solana_rpc="${SOLANA_RPC_ENDPOINT:-}"
+          staking_program_id="${TWIST_PROGRAM_ID:-}"
+          wallet_private_key="${BACKEND_WALLET_PRIVATE_KEY:-}"
+
+          tmp_env="$(mktemp)"
+          chmod 600 "$tmp_env"
+          cat > "$tmp_env" <<EOF
+NODE_ENV=production
+DB_USERNAME=${db_user}
+DB_PASSWORD=${BACKEND_DB_PASSWORD}
+DB_NAME=${db_name}
+REDIS_PASSWORD=${BACKEND_REDIS_PASSWORD}
+JWT_SECRET=${BACKEND_JWT_SECRET}
+ALLOWED_ORIGINS=${allowed_origins}
+SOLANA_RPC_URL=${solana_rpc}
+STAKING_PROGRAM_ID=${staking_program_id}
+WALLET_PRIVATE_KEY=${wallet_private_key}
+EOF
+
+          ssh -p "$port" "${BACKEND_DEPLOY_USER}@${BACKEND_DEPLOY_HOST}" "mkdir -p \"${BACKEND_DEPLOY_PATH}\""
+          scp -P "$port" backend-bundle.tgz "${BACKEND_DEPLOY_USER}@${BACKEND_DEPLOY_HOST}:${BACKEND_DEPLOY_PATH}/backend-bundle.tgz"
+          scp -P "$port" "$tmp_env" "${BACKEND_DEPLOY_USER}@${BACKEND_DEPLOY_HOST}:${BACKEND_DEPLOY_PATH}/.env.backend"
+
+      - name: Deploy on VM (docker compose)
+        env:
+          BACKEND_DEPLOY_HOST: ${{ secrets.BACKEND_DEPLOY_HOST }}
+          BACKEND_DEPLOY_PORT: ${{ secrets.BACKEND_DEPLOY_PORT }}
+          BACKEND_DEPLOY_USER: ${{ secrets.BACKEND_DEPLOY_USER }}
+          BACKEND_DEPLOY_PATH: ${{ secrets.BACKEND_DEPLOY_PATH }}
+        run: |
+          set -euo pipefail
+          port="${BACKEND_DEPLOY_PORT:-22}"
+
+          ssh -p "$port" "${BACKEND_DEPLOY_USER}@${BACKEND_DEPLOY_HOST}" "DEPLOY_PATH='${BACKEND_DEPLOY_PATH}' bash -s" <<'EOF'
+set -euo pipefail
+
+cd "$DEPLOY_PATH"
+tar -xzf backend-bundle.tgz -C "$DEPLOY_PATH"
+
+docker compose --env-file .env.backend -f docker-compose.backend.yml up -d --build
+docker compose --env-file .env.backend -f docker-compose.backend.yml ps
+EOF

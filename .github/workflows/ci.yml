@@ -97,5 +97,11 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: services/influencer-api/package-lock.json
+      - name: Build local package deps
+        run: |
+          npm --prefix ../../packages/messages ci
+          npm --prefix ../../packages/messages run build
+          npm --prefix ../../packages/blockchain-sdk ci
+          npm --prefix ../../packages/blockchain-sdk run build
       - run: npm ci
       - run: npm run build

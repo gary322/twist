@@ -11,6 +11,7 @@ export * from './content-asset.entity';
 export * from './generated-content.entity';
 export * from './click-event.entity';
 export * from './conversion.entity';
+export * from './attribution.entity';
 export * from './attribution-model.entity';
 export * from './touch-point.entity';
 export * from './fraud-alert.entity';

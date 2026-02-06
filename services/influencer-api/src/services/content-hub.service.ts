@@ -12,7 +12,7 @@ import {
   GeneratedContent,
   Influencer,
 } from '../entities';
-import { SECRETS } from '../mocks/config.mock';
+import { SECRETS } from '../config/secrets';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface ContentGenerationParams {
