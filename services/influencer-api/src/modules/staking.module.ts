@@ -14,7 +14,6 @@ import { StakingController } from '../controllers/staking.controller';
 import { StakingQueueProcessor } from '../processors/staking-queue.processor';
 import { NotificationModule } from './notification.module';
 import { SolanaService } from '../services/solana.service';
-import { AuthGuard } from '../guards/auth.guard';
 import { RateLimitGuard } from '../guards/rate-limit.guard';
 
 @Module({
@@ -37,7 +36,6 @@ import { RateLimitGuard } from '../guards/rate-limit.guard';
     StakingService, 
     StakingQueueProcessor,
     SolanaService,
-    AuthGuard,
     RateLimitGuard,
   ],
   exports: [StakingService],
