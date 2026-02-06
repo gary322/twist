@@ -13,6 +13,9 @@ build/
 out/
 .next/
 target/
+.terraform/
+*.tfstate
+*.tfstate.*
 
 # Logs
 logs/

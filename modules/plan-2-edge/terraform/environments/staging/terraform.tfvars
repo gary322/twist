@@ -1,5 +1,6 @@
 environment       = "staging"
 api_domain       = "api-staging.twist.io"
+cloudflare_zone_name = "twist.io"
 worker_count     = 3
 kv_rate_limit    = 5000
 enable_strict_waf = true

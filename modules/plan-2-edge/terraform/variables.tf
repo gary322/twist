@@ -9,8 +9,8 @@ variable "cloudflare_account_id" {
   type        = string
 }
 
-variable "cloudflare_zone_id" {
-  description = "Cloudflare zone ID for the domain"
+variable "cloudflare_zone_name" {
+  description = "Cloudflare zone name for the domain (e.g., twist.io)"
   type        = string
 }
 
@@ -123,8 +123,8 @@ variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)
   default = {
-    Project     = "TWIST"
-    Component   = "Edge"
-    ManagedBy   = "Terraform"
+    Project   = "TWIST"
+    Component = "Edge"
+    ManagedBy = "Terraform"
   }
 }

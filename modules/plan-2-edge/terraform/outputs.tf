@@ -14,7 +14,7 @@ output "kv_namespaces" {
     device_registry   = cloudflare_workers_kv_namespace.device_registry.id
     attestation_cache = cloudflare_workers_kv_namespace.attestation_cache.id
     bloom_filters     = cloudflare_workers_kv_namespace.bloom_filters.id
-    kv               = cloudflare_workers_kv_namespace.kv.id
+    kv                = cloudflare_workers_kv_namespace.kv.id
   }
 }
 
@@ -29,41 +29,24 @@ output "r2_buckets" {
 output "queue_names" {
   description = "Queue names"
   value = {
-    vau_queue       = cloudflare_queue.vau_queue.name
-    reward_queue    = cloudflare_queue.reward_queue.name
-    analytics_queue = cloudflare_queue.analytics_queue.name
-  }
-}
-
-output "durable_object_namespaces" {
-  description = "Durable Object namespace IDs"
-  value = {
-    rate_limiter     = cloudflare_durable_object_namespace.rate_limiter.id
-    session_manager  = cloudflare_durable_object_namespace.session_manager.id
-    vau_aggregator   = cloudflare_durable_object_namespace.vau_aggregator.id
+    vau_queue       = cloudflare_queue.vau_queue.queue_name
+    reward_queue    = cloudflare_queue.reward_queue.queue_name
+    analytics_queue = cloudflare_queue.analytics_queue.queue_name
   }
 }
 
 output "worker_scripts" {
   description = "Worker script names"
   value = {
-    vau_processor   = cloudflare_worker_script.vau_processor.name
-    security_worker = cloudflare_worker_script.security_worker.name
-    durable_objects = cloudflare_workers_script.durable_objects.name
+    vau_processor   = cloudflare_workers_script.vau_processor.script_name
+    security_worker = cloudflare_workers_script.security_worker.script_name
+    durable_objects = cloudflare_workers_script.durable_objects.script_name
   }
 }
 
 output "waf_ruleset_id" {
   description = "WAF ruleset ID"
   value       = cloudflare_ruleset.security_rules.id
-}
-
-output "rate_limit_ids" {
-  description = "Rate limit rule IDs"
-  value = {
-    api_rate_limit = cloudflare_rate_limit.api_rate_limit.id
-    vau_rate_limit = cloudflare_rate_limit.vau_rate_limit.id
-  }
 }
 
 output "api_endpoint" {
@@ -79,9 +62,9 @@ output "environment" {
 output "deployment_info" {
   description = "Deployment information for monitoring"
   value = {
-    environment   = var.environment
-    api_domain    = var.api_domain
-    worker_count  = var.worker_count
-    deployed_at   = timestamp()
+    environment  = var.environment
+    api_domain   = var.api_domain
+    worker_count = var.worker_count
+    deployed_at  = timestamp()
   }
 }

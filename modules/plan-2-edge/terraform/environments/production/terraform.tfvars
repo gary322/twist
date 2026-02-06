@@ -1,5 +1,6 @@
 environment       = "production"
 api_domain       = "api.twist.io"
+cloudflare_zone_name = "twist.io"
 worker_count     = 10
 kv_rate_limit    = 10000
 enable_strict_waf = true
