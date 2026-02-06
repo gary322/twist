@@ -6,6 +6,8 @@ Monorepo for TWIST edge (Cloudflare Workers) plus backend services for an influe
 
 ## Contents
 
+- [What Is TWIST?](#what-is-twist)
+- [What TWIST Can Do](#what-twist-can-do)
 - [What This Repo Ships Today](#what-this-repo-ships-today)
 - [System Architecture](#system-architecture)
 - [Repo Layout](#repo-layout)
@@ -18,6 +20,34 @@ Monorepo for TWIST edge (Cloudflare Workers) plus backend services for an influe
 - [Operations](#operations)
 - [Security](#security)
 - [Troubleshooting](#troubleshooting)
+
+## What Is TWIST?
+
+TWIST is an attention and incentives platform. Client apps (extension/web/mobile/SDKs) emit **Verified Attention Units (VAUs)**, which are validated at the edge (Cloudflare Workers) and turned into reward and analytics events. A backend API then powers influencer pools, referral links, click/conversion attribution, and payout workflows.
+
+Core primitives:
+
+- **VAU**: a signed attention event `{ userId, deviceId, siteId, timestamp, payload, ... }` submitted to the edge.
+- **Device trust**: a score derived from device history (and optional attestations) used to dampen fraud and scale rewards.
+- **Influencer staking pools**: pool discovery + stake/unstake/claim flows persisted in Postgres, with optional on-chain settlement (currently scaffolded).
+- **Referral links + attribution**: link generation, click tracking, conversion events, and aggregated analytics.
+
+This repo is a monorepo: the edge path is production-deployed via Terraform; the backend currently runs as Node services deployed via GitHub Actions to a VM with Docker Compose.
+
+## What TWIST Can Do
+
+What’s implemented in the codebase today (with production hardening still required for some areas):
+
+- **Collect VAUs at the edge**: HMAC-signed ingestion, rate limiting via Durable Objects, dedupe + device registry in KV, audit logging to R2, and reward/analytics messages enqueued to Workers Queues (`modules/plan-2-edge/`).
+- **Wallet auth (Solana)**: nonce issuance + signature verification to mint JWTs, plus `/health`, `/ready`, and Prometheus `/metrics` (`services/auth-service/`).
+- **Influencer + staking API**: influencer registration + email verification, staking pool search and stake/unstake/claim endpoints, Postgres persistence, Redis-backed caching and background jobs, and real-time updates via Socket.IO gateways (`services/influencer-api/`).
+- **Referral links + attribution**: referral link generation, click tracking, conversion events, and analytics endpoints (implemented in backend, with some product behaviors still simplified).
+
+What is present but not production-complete yet:
+
+- **End-to-end auth standardization**: JWT claims/expectations are not fully aligned between `auth-service` and `influencer-api`, and some endpoints still accept `userId`/`wallet` in request bodies.
+- **On-chain settlement**: Solana integration exists as scaffolding in backend code; some staking flows still generate mock transaction ids unless you wire the programs end-to-end.
+- **Frontend deployment**: web/extension/mobile apps exist but are not wired into the deploy workflows in this repo.
 
 ## What This Repo Ships Today
 
