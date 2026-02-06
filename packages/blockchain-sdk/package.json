@@ -9,7 +9,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@solana/web3.js": "^1.87.6"
+    "@solana/web3.js": "^1.98.4"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
