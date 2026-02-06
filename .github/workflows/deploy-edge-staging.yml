@@ -1,0 +1,99 @@
+name: Deploy Edge (Staging)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "modules/plan-2-edge/**"
+      - ".github/workflows/deploy-edge-staging.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-edge-staging
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: staging
+    env:
+      DEPLOY_ENV: staging
+
+      TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      TF_VAR_cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TF_VAR_hmac_secret: ${{ secrets.EDGE_HMAC_SECRET }}
+      TF_VAR_solana_rpc: ${{ secrets.SOLANA_RPC_ENDPOINT }}
+      TF_VAR_twist_program_id: ${{ secrets.TWIST_PROGRAM_ID }}
+
+      EDGE_TFSTATE_PASSPHRASE: ${{ secrets.EDGE_TFSTATE_PASSPHRASE }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: modules/plan-2-edge/package-lock.json
+
+      - name: Build worker bundles
+        working-directory: modules/plan-2-edge
+        run: |
+          npm ci
+          npm run build:terraform
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.5.7"
+
+      - name: Checkout infra-state
+        uses: actions/checkout@v4
+        with:
+          ref: infra-state
+          path: .infra-state
+          fetch-depth: 1
+
+      - name: Restore state (if present)
+        run: |
+          set -euo pipefail
+          ENC_STATE=".infra-state/edge/${DEPLOY_ENV}/terraform.tfstate.enc"
+          STATE_FILE="modules/plan-2-edge/terraform/terraform.tfstate"
+
+          if [ -f "${ENC_STATE}" ]; then
+            openssl enc -d -aes-256-gcm -pbkdf2 \
+              -pass "pass:${EDGE_TFSTATE_PASSPHRASE}" \
+              -in "${ENC_STATE}" \
+              -out "${STATE_FILE}"
+          fi
+
+      - name: Terraform apply
+        working-directory: modules/plan-2-edge/terraform
+        run: |
+          terraform init -input=false
+          terraform apply -input=false -auto-approve \
+            -var-file="environments/${DEPLOY_ENV}/terraform.tfvars"
+
+      - name: Persist encrypted state
+        run: |
+          set -euo pipefail
+          STATE_FILE="modules/plan-2-edge/terraform/terraform.tfstate"
+          STATE_DIR=".infra-state/edge/${DEPLOY_ENV}"
+          ENC_STATE="${STATE_DIR}/terraform.tfstate.enc"
+
+          mkdir -p "${STATE_DIR}"
+          openssl enc -aes-256-gcm -pbkdf2 \
+            -pass "pass:${EDGE_TFSTATE_PASSPHRASE}" \
+            -in "${STATE_FILE}" \
+            -out "${ENC_STATE}"
+
+          cd .infra-state
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "edge/${DEPLOY_ENV}/terraform.tfstate.enc"
+          git commit -m "Update edge Terraform state (${DEPLOY_ENV}) [skip ci]" || exit 0
+          git push origin HEAD:infra-state
+
