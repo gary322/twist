@@ -1,0 +1,29 @@
+{
+  "name": "@twist/buyback-bot",
+  "version": "1.0.0",
+  "description": "Automated buyback bot for TWIST token",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@twist/sdk": "file:../../sdk",
+    "@solana/web3.js": "^1.87.6",
+    "@coral-xyz/anchor": "^0.29.0",
+    "bn.js": "^5.2.1",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/bn.js": "^5.1.5",
+    "@types/node": "^20.10.5",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "eslint": "^8.56.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}

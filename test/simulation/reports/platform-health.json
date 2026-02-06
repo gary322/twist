@@ -1,0 +1,25 @@
+{
+  "treasury": {
+    "total": 99999816.2375632,
+    "floor": 90000000,
+    "operational": 9999816.237563208,
+    "floorRatio": "90.00%"
+  },
+  "tokenSupply": {
+    "total": 982771748.2051941,
+    "circulating": 482346594.6426749,
+    "staked": 425153.5625206061,
+    "burned": 17228251.794805888,
+    "stakedRatio": "0.09%"
+  },
+  "activity": {
+    "dailyActiveUsers": 10000,
+    "dailyTransactions": 645,
+    "dailyVolume": 565602.4034042332
+  },
+  "economics": {
+    "decayRate": 0.005,
+    "transferFee": 0.003,
+    "stakingRewardRate": 0.0001
+  }
+}

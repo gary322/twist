@@ -1,0 +1,35 @@
+[Unit]
+Description=TWIST Market Maker Bot
+After=network.target
+
+[Service]
+Type=simple
+User=twist
+Group=twist
+WorkingDirectory=/opt/twist/bots/market-maker
+Environment="NODE_ENV=production"
+EnvironmentFile=/opt/twist/.env
+ExecStartPre=/bin/bash -c 'echo "Starting TWIST Market Maker Bot..."'
+ExecStart=/usr/bin/ts-node /opt/twist/bots/market-maker/index.ts
+ExecReload=/bin/kill -s HUP $MAINPID
+ExecStop=/bin/kill -s SIGINT $MAINPID
+Restart=always
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=twist-market-maker
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/twist/data
+
+# Resource limits
+LimitNOFILE=65535
+MemoryLimit=2G
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target

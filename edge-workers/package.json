@@ -1,0 +1,13 @@
+{
+  "name": "twist-edge-workers",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "wrangler publish --dry-run",
+    "deploy": "wrangler publish",
+    "dev": "wrangler dev"
+  },
+  "dependencies": {
+    "@cloudflare/workers-types": "^4.0.0",
+    "wrangler": "^3.0.0"
+  }
+}

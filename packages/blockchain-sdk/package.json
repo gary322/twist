@@ -1,0 +1,17 @@
+{
+  "name": "@twist/blockchain-sdk",
+  "version": "1.0.0",
+  "description": "Blockchain SDK for Twist platform",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.87.6"
+  },
+  "devDependencies": {
+    "typescript": "^5.1.3"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "extension_name": {
+    "message": "TWIST - Earn While You Browse",
+    "description": "Name of the extension"
+  },
+  "extension_description": {
+    "message": "Earn TWIST tokens for your verified active web usage",
+    "description": "Description of the extension"
+  }
+}

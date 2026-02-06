@@ -1,0 +1,21 @@
+{
+  "name": "@twist/vau-processor",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "test": "jest"
+  },
+  "dependencies": {
+    "itty-router": "^4.0.23",
+    "js-base64": "^3.7.5",
+    "@noble/ed25519": "^2.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240117.0",
+    "wrangler": "^3.22.4"
+  }
+}

@@ -1,0 +1,513 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: twist-influencer
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: influencer-api-config
+  namespace: twist-influencer
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  LOG_LEVEL: "info"
+  REDIS_CLUSTER_MODE: "true"
+  POSTGRES_POOL_SIZE: "20"
+  BULL_CONCURRENCY: "10"
+  WEBSOCKET_CORS_ORIGIN: "https://twist.to,https://app.twist.to"
+  PROMETHEUS_METRICS_PATH: "/metrics"
+  PROMETHEUS_METRICS_PORT: "9090"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: influencer-api-secrets
+  namespace: twist-influencer
+type: Opaque
+stringData:
+  DATABASE_URL: "postgresql://user:pass@postgres-cluster:5432/twist_production"
+  REDIS_URL: "redis://:password@redis-cluster:6379"
+  SOLANA_RPC_URL: "https://api.mainnet-beta.solana.com"
+  JWT_SECRET: "your-jwt-secret"
+  SENDGRID_API_KEY: "your-sendgrid-key"
+  AWS_ACCESS_KEY_ID: "your-aws-key"
+  AWS_SECRET_ACCESS_KEY: "your-aws-secret"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: influencer-api
+  namespace: twist-influencer
+  labels:
+    app: influencer-api
+    version: v1
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: influencer-api
+  template:
+    metadata:
+      labels:
+        app: influencer-api
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: influencer-api
+      containers:
+      - name: api
+        image: twist/influencer-api:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 3000
+        - name: metrics
+          containerPort: 9090
+        - name: websocket
+          containerPort: 3001
+        envFrom:
+        - configMapRef:
+            name: influencer-api-config
+        - secretRef:
+            name: influencer-api-secrets
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: app-logs
+          mountPath: /app/logs
+      volumes:
+      - name: app-logs
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: influencer-api
+  namespace: twist-influencer
+  labels:
+    app: influencer-api
+spec:
+  selector:
+    app: influencer-api
+  ports:
+  - name: http
+    port: 80
+    targetPort: 3000
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+  - name: websocket
+    port: 3001
+    targetPort: 3001
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: influencer-api-hpa
+  namespace: twist-influencer
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: influencer-api
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  - type: Pods
+    pods:
+      metric:
+        name: api_requests_per_second
+      target:
+        type: AverageValue
+        averageValue: "100"
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 60
+      - type: Pods
+        value: 4
+        periodSeconds: 60
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: influencer-api-pdb
+  namespace: twist-influencer
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: influencer-api
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: influencer-api-ingress
+  namespace: twist-influencer
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/websocket-services: "influencer-api"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+spec:
+  tls:
+  - hosts:
+    - api.twist.to
+    secretName: api-twist-tls
+  rules:
+  - host: api.twist.to
+    http:
+      paths:
+      - path: /v1
+        pathType: Prefix
+        backend:
+          service:
+            name: influencer-api
+            port:
+              number: 80
+      - path: /socket.io
+        pathType: Prefix
+        backend:
+          service:
+            name: influencer-api
+            port:
+              number: 3001
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: influencer-api
+  namespace: twist-influencer
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: influencer-api
+  namespace: twist-influencer
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: influencer-api
+  namespace: twist-influencer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: influencer-api
+subjects:
+- kind: ServiceAccount
+  name: influencer-api
+  namespace: twist-influencer
+---
+# Redis Cluster for caching and pub/sub
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-cluster
+  namespace: twist-influencer
+spec:
+  ports:
+  - port: 6379
+    targetPort: 6379
+  selector:
+    app: redis
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  namespace: twist-influencer
+spec:
+  serviceName: redis-cluster
+  replicas: 3
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+        command: ["redis-server"]
+        args: ["--cluster-enabled", "yes", "--cluster-config-file", "nodes.conf", "--cluster-node-timeout", "5000", "--appendonly", "yes"]
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: data
+          mountPath: /data
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi
+---
+# PostgreSQL for main database
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-cluster
+  namespace: twist-influencer
+spec:
+  ports:
+  - port: 5432
+    targetPort: 5432
+  selector:
+    app: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: twist-influencer
+spec:
+  serviceName: postgres-cluster
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: twist_production
+        - name: POSTGRES_USER
+          value: twist_user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: password
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 100Gi
+---
+# Monitoring with Prometheus
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: twist-influencer
+spec:
+  ports:
+  - port: 9090
+    targetPort: 9090
+  selector:
+    app: prometheus
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: twist-influencer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      serviceAccountName: prometheus
+      containers:
+      - name: prometheus
+        image: prom/prometheus:latest
+        ports:
+        - containerPort: 9090
+        volumeMounts:
+        - name: config
+          mountPath: /etc/prometheus
+        - name: data
+          mountPath: /prometheus
+        args:
+        - '--config.file=/etc/prometheus/prometheus.yml'
+        - '--storage.tsdb.path=/prometheus'
+        - '--web.enable-lifecycle'
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+      volumes:
+      - name: config
+        configMap:
+          name: prometheus-config
+      - name: data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: twist-influencer
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+    
+    alerting:
+      alertmanagers:
+      - static_configs:
+        - targets:
+          - alertmanager:9093
+    
+    rule_files:
+      - '/etc/prometheus/alerts.yml'
+    
+    scrape_configs:
+      - job_name: 'influencer-api'
+        kubernetes_sd_configs:
+        - role: pod
+          namespaces:
+            names:
+            - twist-influencer
+        relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+          action: keep
+          regex: true
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+          action: replace
+          target_label: __metrics_path__
+          regex: (.+)
+        - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+          action: replace
+          regex: ([^:]+)(?::\d+)?;(\d+)
+          replacement: $1:$2
+          target_label: __address__
+        - action: labelmap
+          regex: __meta_kubernetes_pod_label_(.+)
+        - source_labels: [__meta_kubernetes_namespace]
+          action: replace
+          target_label: kubernetes_namespace
+        - source_labels: [__meta_kubernetes_pod_name]
+          action: replace
+          target_label: kubernetes_pod_name
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: twist-influencer
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - services
+  - endpoints
+  - pods
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus
+subjects:
+- kind: ServiceAccount
+  name: prometheus
+  namespace: twist-influencer

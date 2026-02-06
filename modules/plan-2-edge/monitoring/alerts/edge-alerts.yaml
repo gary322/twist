@@ -1,0 +1,152 @@
+groups:
+  - name: edge_availability
+    interval: 30s
+    rules:
+      - alert: EdgeHighErrorRate
+        expr: rate(edge_errors_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: critical
+          team: infrastructure
+        annotations:
+          summary: "High error rate on edge workers"
+          description: "Error rate is {{ $value }} errors/sec (threshold: 10/sec)"
+          runbook_url: "https://docs.twist.io/runbooks/edge-high-error-rate"
+
+      - alert: EdgeHighLatency
+        expr: histogram_quantile(0.95, sum(rate(edge_request_duration_ms_bucket[5m])) by (le)) > 1000
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "High latency on edge workers"
+          description: "95th percentile latency is {{ $value }}ms (threshold: 1000ms)"
+
+      - alert: EdgeWorkerUnhealthy
+        expr: up{job="cloudflare-workers"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: infrastructure
+        annotations:
+          summary: "Edge worker is down"
+          description: "Worker {{ $labels.instance }} has been down for more than 2 minutes"
+
+  - name: edge_security
+    interval: 30s
+    rules:
+      - alert: EdgeSecurityAttack
+        expr: rate(edge_security_blocks_total{severity="high"}[5m]) > 5
+        for: 1m
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "Potential security attack detected"
+          description: "High severity security blocks: {{ $value }}/sec"
+          runbook_url: "https://docs.twist.io/runbooks/edge-security-attack"
+
+      - alert: EdgeRateLimitAbuse
+        expr: rate(edge_rate_limit_hits_total[5m]) > 100
+        for: 2m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "High rate of rate limit hits"
+          description: "Rate limit hits: {{ $value }}/sec on {{ $labels.endpoint }}"
+
+      - alert: EdgeGeoBlocks
+        expr: increase(edge_security_blocks_total{rule="geo_block"}[1h]) > 100
+        for: 5m
+        labels:
+          severity: info
+          team: security
+        annotations:
+          summary: "Increased geographic blocks"
+          description: "{{ $value }} requests blocked from restricted countries in the last hour"
+
+  - name: edge_performance
+    interval: 30s
+    rules:
+      - alert: EdgeLowCacheHitRate
+        expr: |
+          sum(rate(edge_cache_hits_total[5m])) / 
+          (sum(rate(edge_cache_hits_total[5m])) + sum(rate(edge_cache_misses_total[5m]))) < 0.8
+        for: 10m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "Cache hit rate below threshold"
+          description: "Cache hit rate is {{ $value | humanizePercentage }} (threshold: 80%)"
+
+      - alert: EdgeHighCPUUsage
+        expr: histogram_quantile(0.95, sum(rate(edge_cpu_time_ms_bucket[5m])) by (le)) > 50
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "High CPU usage on edge workers"
+          description: "95th percentile CPU time is {{ $value }}ms (threshold: 50ms)"
+
+      - alert: EdgeQueueBacklog
+        expr: edge_queue_backlog > 1000
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "High queue backlog"
+          description: "Queue {{ $labels.queue }} has {{ $value }} messages backlogged"
+
+  - name: edge_vau_processing
+    interval: 30s
+    rules:
+      - alert: EdgeVAUProcessingFailures
+        expr: rate(edge_queue_messages_processed_total{status="failure"}[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "High VAU processing failure rate"
+          description: "{{ $value }} VAU processing failures/sec"
+
+      - alert: EdgeLowTrustVAUs
+        expr: |
+          sum(rate(edge_vau_processed_total{trust_level="low"}[5m])) /
+          sum(rate(edge_vau_processed_total[5m])) > 0.3
+        for: 10m
+        labels:
+          severity: info
+          team: platform
+        annotations:
+          summary: "High percentage of low trust VAUs"
+          description: "{{ $value | humanizePercentage }} of VAUs have low trust scores"
+
+  - name: edge_compliance
+    interval: 60s
+    rules:
+      - alert: EdgeAuditLogFailure
+        expr: increase(edge_errors_total{type="audit_log_failure"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          team: compliance
+        annotations:
+          summary: "Audit log write failure"
+          description: "Failed to write audit logs - compliance violation risk"
+          runbook_url: "https://docs.twist.io/runbooks/edge-audit-failure"
+
+      - alert: EdgePrivacyViolation
+        expr: increase(edge_errors_total{type="privacy_violation"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          team: compliance
+        annotations:
+          summary: "Privacy violation detected"
+          description: "Potential privacy violation in edge processing"

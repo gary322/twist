@@ -1,0 +1,29 @@
+name = "durable-objects"
+main = "index.ts"
+compatibility_date = "2024-01-15"
+node_compat = true
+
+[env.development]
+name = "durable-objects-dev"
+
+[env.staging]
+name = "durable-objects-staging"
+
+[env.production]
+name = "durable-objects-production"
+
+[[durable_objects.bindings]]
+name = "RATE_LIMITER"
+class_name = "RateLimiter"
+
+[[durable_objects.bindings]]
+name = "SESSION_MANAGER"
+class_name = "SessionManager"
+
+[[durable_objects.bindings]]
+name = "VAU_AGGREGATOR"
+class_name = "VAUAggregator"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["RateLimiter", "SessionManager", "VAUAggregator"]

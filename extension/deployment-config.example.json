@@ -1,0 +1,56 @@
+{
+  "chrome": {
+    "extensionId": "YOUR_CHROME_EXTENSION_ID",
+    "clientId": "YOUR_CHROME_CLIENT_ID",
+    "clientSecret": "YOUR_CHROME_CLIENT_SECRET",
+    "refreshToken": "YOUR_CHROME_REFRESH_TOKEN",
+    "file": "dist/chrome/twist-extension.zip"
+  },
+  "firefox": {
+    "apiKey": "YOUR_FIREFOX_API_KEY",
+    "apiSecret": "YOUR_FIREFOX_API_SECRET", 
+    "addonId": "YOUR_FIREFOX_ADDON_ID",
+    "file": "dist/firefox/twist-extension.zip"
+  },
+  "edge": {
+    "productId": "YOUR_EDGE_PRODUCT_ID",
+    "clientId": "YOUR_EDGE_CLIENT_ID",
+    "clientSecret": "YOUR_EDGE_CLIENT_SECRET",
+    "accessTokenUrl": "https://login.microsoftonline.com/YOUR_TENANT_ID/oauth2/v2.0/token",
+    "file": "dist/edge/twist-extension.zip"
+  },
+  "environments": {
+    "test": {
+      "chrome": {
+        "extensionId": "YOUR_TEST_CHROME_EXTENSION_ID"
+      },
+      "firefox": {
+        "addonId": "YOUR_TEST_FIREFOX_ADDON_ID"
+      },
+      "edge": {
+        "productId": "YOUR_TEST_EDGE_PRODUCT_ID"
+      }
+    },
+    "production": {
+      "chrome": {
+        "extensionId": "YOUR_PROD_CHROME_EXTENSION_ID"
+      },
+      "firefox": {
+        "addonId": "YOUR_PROD_FIREFOX_ADDON_ID"
+      },
+      "edge": {
+        "productId": "YOUR_PROD_EDGE_PRODUCT_ID"
+      }
+    }
+  },
+  "monitoring": {
+    "sentry": {
+      "project": "twist-extension",
+      "authToken": "YOUR_SENTRY_AUTH_TOKEN",
+      "dsn": "YOUR_SENTRY_DSN"
+    },
+    "slack": {
+      "webhookUrl": "YOUR_SLACK_WEBHOOK_URL"
+    }
+  }
+}

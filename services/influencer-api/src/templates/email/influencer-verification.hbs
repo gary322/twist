@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Your Email</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f9fafb;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      padding: 40px;
+      margin-top: 20px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .logo {
+      width: 120px;
+      height: auto;
+    }
+    h1 {
+      color: #8B5CF6;
+      font-size: 28px;
+      margin: 20px 0;
+    }
+    .button {
+      display: inline-block;
+      background-color: #8B5CF6;
+      color: white;
+      text-decoration: none;
+      padding: 14px 28px;
+      border-radius: 8px;
+      font-weight: 600;
+      margin: 20px 0;
+    }
+    .button:hover {
+      background-color: #7C3AED;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      color: #6B7280;
+      font-size: 14px;
+    }
+    .link {
+      color: #8B5CF6;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="header">
+        <h1>Welcome to Twist, {{username}}!</h1>
+      </div>
+      
+      <p>Thank you for joining the Twist Influencer Program. You're just one step away from starting your journey as a Twist influencer.</p>
+      
+      <p>Please verify your email address by clicking the button below:</p>
+      
+      <div style="text-align: center;">
+        <a href="{{verificationUrl}}" class="button">Verify Email Address</a>
+      </div>
+      
+      <p>Or copy and paste this link into your browser:</p>
+      <p class="link">{{verificationUrl}}</p>
+      
+      <p style="margin-top: 30px;"><strong>What happens next?</strong></p>
+      <ul>
+        <li>Your email will be verified</li>
+        <li>You'll gain access to your influencer dashboard</li>
+        <li>You can start creating referral links</li>
+        <li>Users can start staking on you</li>
+      </ul>
+      
+      <p style="color: #6B7280; font-size: 14px; margin-top: 30px;">
+        This link will expire in {{expiryHours}} hours. If you didn't create an account with Twist, you can safely ignore this email.
+      </p>
+      
+      <div class="footer">
+        <p>Best regards,<br>The Twist Team</p>
+        <p style="font-size: 12px;">
+          © 2024 Twist Platform. All rights reserved.
+        </p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

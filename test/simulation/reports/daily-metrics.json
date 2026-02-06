@@ -1,0 +1,65 @@
+[
+  {
+    "day": 1,
+    "newVAUs": 5917,
+    "newStakes": 3830,
+    "newTransactions": 173,
+    "stakedGrowth": 100093.28382506614,
+    "burnedGrowth": 1801,
+    "revenueGrowth": 0
+  },
+  {
+    "day": 2,
+    "newVAUs": 5906,
+    "newStakes": 3810,
+    "newTransactions": 149,
+    "stakedGrowth": 92639.29386008394,
+    "burnedGrowth": 1594,
+    "revenueGrowth": 0
+  },
+  {
+    "day": 3,
+    "newVAUs": 5950,
+    "newStakes": 3775,
+    "newTransactions": 95,
+    "stakedGrowth": 87105.42979051516,
+    "burnedGrowth": 1017,
+    "revenueGrowth": 0
+  },
+  {
+    "day": 4,
+    "newVAUs": 5904,
+    "newStakes": 3631,
+    "newTransactions": 70,
+    "stakedGrowth": 79739.70164857543,
+    "burnedGrowth": 765,
+    "revenueGrowth": 0
+  },
+  {
+    "day": 5,
+    "newVAUs": 5908,
+    "newStakes": 3455,
+    "newTransactions": 66,
+    "stakedGrowth": 71942.09416539536,
+    "burnedGrowth": 729,
+    "revenueGrowth": 0
+  },
+  {
+    "day": 6,
+    "newVAUs": 5871,
+    "newStakes": 3444,
+    "newTransactions": 58,
+    "stakedGrowth": 68983.52986824111,
+    "burnedGrowth": 649,
+    "revenueGrowth": 0
+  },
+  {
+    "day": 7,
+    "newVAUs": 5925,
+    "newStakes": 3349,
+    "newTransactions": 34,
+    "stakedGrowth": 65030.22458384995,
+    "burnedGrowth": 372,
+    "revenueGrowth": 0
+  }
+]

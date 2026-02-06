@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: twist-config
+  namespace: twist-production
+data:
+  NODE_ENV: "production"
+  API_VERSION: "v1"
+  LOG_LEVEL: "info"

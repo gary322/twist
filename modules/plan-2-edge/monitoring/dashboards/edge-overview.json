@@ -1,0 +1,129 @@
+{
+  "dashboard": {
+    "title": "TWIST Edge Computing Overview",
+    "uid": "twist-edge-overview",
+    "timezone": "utc",
+    "refresh": "5s",
+    "panels": [
+      {
+        "title": "Request Rate",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "sum(rate(edge_requests_total[5m])) by (method)",
+            "legendFormat": "{{method}}"
+          }
+        ],
+        "yaxes": [{ "format": "reqps", "label": "Requests/sec" }]
+      },
+      {
+        "title": "Error Rate",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "sum(rate(edge_errors_total[5m])) by (type)",
+            "legendFormat": "{{type}}"
+          }
+        ],
+        "yaxes": [{ "format": "reqps", "label": "Errors/sec" }],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": { "params": [10], "type": "gt" },
+              "query": { "model": "A" }
+            }
+          ]
+        }
+      },
+      {
+        "title": "Response Time (p95)",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(edge_request_duration_ms_bucket[5m])) by (path, le))",
+            "legendFormat": "{{path}}"
+          }
+        ],
+        "yaxes": [{ "format": "ms", "label": "Duration (ms)" }]
+      },
+      {
+        "title": "Cache Hit Rate",
+        "type": "gauge",
+        "gridPos": { "x": 12, "y": 8, "w": 6, "h": 8 },
+        "targets": [
+          {
+            "expr": "sum(rate(edge_cache_hits_total[5m])) / (sum(rate(edge_cache_hits_total[5m])) + sum(rate(edge_cache_misses_total[5m])))"
+          }
+        ],
+        "thresholds": "0.8,0.9",
+        "format": "percent"
+      },
+      {
+        "title": "Security Blocks",
+        "type": "stat",
+        "gridPos": { "x": 18, "y": 8, "w": 6, "h": 8 },
+        "targets": [
+          {
+            "expr": "sum(increase(edge_security_blocks_total[1h]))",
+            "format": "short"
+          }
+        ],
+        "sparkline": { "show": true }
+      },
+      {
+        "title": "VAU Processing",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "sum(rate(edge_vau_processed_total[5m])) by (trust_level)",
+            "legendFormat": "{{trust_level}}"
+          }
+        ],
+        "yaxes": [{ "format": "short", "label": "VAUs/sec" }]
+      },
+      {
+        "title": "Queue Processing Time",
+        "type": "heatmap",
+        "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "sum(rate(edge_queue_processing_duration_ms_bucket[5m])) by (le)",
+            "format": "heatmap"
+          }
+        ],
+        "dataFormat": "tsbuckets"
+      },
+      {
+        "title": "Rate Limit Hits",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 24, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "sum(rate(edge_rate_limit_hits_total[5m])) by (endpoint)",
+            "legendFormat": "{{endpoint}}"
+          }
+        ]
+      },
+      {
+        "title": "CPU Time Distribution",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 24, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(edge_cpu_time_ms_bucket[5m])) by (le))",
+            "legendFormat": "p95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(edge_cpu_time_ms_bucket[5m])) by (le))",
+            "legendFormat": "p99"
+          }
+        ],
+        "yaxes": [{ "format": "ms", "label": "CPU Time (ms)" }]
+      }
+    ]
+  }
+}

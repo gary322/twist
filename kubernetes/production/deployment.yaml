@@ -1,0 +1,408 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: twist-production
+---
+# PostgreSQL StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: twist-production
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        env:
+        - name: POSTGRES_DB
+          value: twist_production
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: twist-secrets
+              key: database-user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: twist-secrets
+              key: database-password
+        ports:
+        - containerPort: 5432
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "2"
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-storage
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 100Gi
+---
+# Redis Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: twist-production
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        command:
+        - redis-server
+        - --requirepass
+        - $(REDIS_PASSWORD)
+        - --appendonly
+        - "yes"
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: twist-secrets
+              key: redis-password
+        ports:
+        - containerPort: 6379
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "1"
+---
+# Auth Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: twist-production
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      containers:
+      - name: auth-service
+        image: twist/auth-service:latest
+        env:
+        - name: NODE_ENV
+          value: production
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: twist-secrets
+              key: database-url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: twist-secrets
+              key: redis-url
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: twist-secrets
+              key: jwt-secret
+        ports:
+        - containerPort: 3001
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3001
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 3001
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "1"
+---
+# Publisher API Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: publisher-api
+  namespace: twist-production
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: publisher-api
+  template:
+    metadata:
+      labels:
+        app: publisher-api
+    spec:
+      containers:
+      - name: publisher-api
+        image: twist/publisher-api:latest
+        env:
+        - name: NODE_ENV
+          value: production
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: twist-secrets
+              key: database-url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: twist-secrets
+              key: redis-url
+        ports:
+        - containerPort: 3002
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "1"
+---
+# Influencer API Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: influencer-api
+  namespace: twist-production
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: influencer-api
+  template:
+    metadata:
+      labels:
+        app: influencer-api
+    spec:
+      containers:
+      - name: influencer-api
+        image: twist/influencer-api:latest
+        env:
+        - name: NODE_ENV
+          value: production
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: twist-secrets
+              key: database-url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: twist-secrets
+              key: redis-url
+        - name: SOLANA_RPC_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: twist-config
+              key: solana-rpc-endpoint
+        ports:
+        - containerPort: 3003
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "2"
+---
+# Services
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: twist-production
+spec:
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
+  clusterIP: None
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: twist-production
+spec:
+  selector:
+    app: redis
+  ports:
+  - port: 6379
+    targetPort: 6379
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: twist-production
+spec:
+  selector:
+    app: auth-service
+  ports:
+  - port: 3001
+    targetPort: 3001
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: publisher-api
+  namespace: twist-production
+spec:
+  selector:
+    app: publisher-api
+  ports:
+  - port: 3002
+    targetPort: 3002
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: influencer-api
+  namespace: twist-production
+spec:
+  selector:
+    app: influencer-api
+  ports:
+  - port: 3003
+    targetPort: 3003
+---
+# Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: twist-ingress
+  namespace: twist-production
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+spec:
+  tls:
+  - hosts:
+    - api.twist.io
+    - auth.twist.io
+    - influencer-api.twist.io
+    secretName: twist-tls
+  rules:
+  - host: auth.twist.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: auth-service
+            port:
+              number: 3001
+  - host: api.twist.io
+    http:
+      paths:
+      - path: /publishers
+        pathType: Prefix
+        backend:
+          service:
+            name: publisher-api
+            port:
+              number: 3002
+      - path: /influencers
+        pathType: Prefix
+        backend:
+          service:
+            name: influencer-api
+            port:
+              number: 3003
+---
+# HorizontalPodAutoscaler
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: auth-service-hpa
+  namespace: twist-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: auth-service
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+---
+# ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: twist-config
+  namespace: twist-production
+data:
+  solana-rpc-endpoint: "https://api.mainnet-beta.solana.com"
+  kafka-brokers: "kafka-0.kafka:9092,kafka-1.kafka:9092,kafka-2.kafka:9092"
+  clickhouse-host: "clickhouse.twist-production.svc.cluster.local"
+---
+# Secrets (base64 encoded in production)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: twist-secrets
+  namespace: twist-production
+type: Opaque
+data:
+  database-user: dHdpc3RfdXNlcg==
+  database-password: <base64-encoded-password>
+  database-url: <base64-encoded-database-url>
+  redis-password: <base64-encoded-redis-password>
+  redis-url: <base64-encoded-redis-url>
+  jwt-secret: <base64-encoded-jwt-secret>

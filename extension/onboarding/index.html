@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to TWIST Extension</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f9fafb;
+      color: #1f2937;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+    .logo {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 1rem;
+    }
+    h1 {
+      color: #9333ea;
+      margin-bottom: 0.5rem;
+    }
+    .feature {
+      background: white;
+      border-radius: 8px;
+      padding: 2rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .feature h3 {
+      color: #9333ea;
+      margin-bottom: 0.5rem;
+    }
+    .cta {
+      text-align: center;
+      margin-top: 3rem;
+    }
+    .button {
+      background-color: #9333ea;
+      color: white;
+      padding: 1rem 2rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .button:hover {
+      background-color: #7c3aed;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <img src="../assets/logo.svg" alt="TWIST Logo" class="logo">
+      <h1>Welcome to TWIST Extension</h1>
+      <p>Start earning TWIST tokens while you browse the web!</p>
+    </div>
+
+    <div class="feature">
+      <h3>🌐 Earn While You Browse</h3>
+      <p>Your verified active usage on TWIST-enabled websites automatically earns you TWIST tokens.</p>
+    </div>
+
+    <div class="feature">
+      <h3>💰 Stake on Influencers</h3>
+      <p>Discover and stake on your favorite influencers across social media platforms.</p>
+    </div>
+
+    <div class="feature">
+      <h3>🔒 Privacy First</h3>
+      <p>Your data stays private. We only track verified active usage with your consent.</p>
+    </div>
+
+    <div class="feature">
+      <h3>🎯 Smart Notifications</h3>
+      <p>Get notified about earnings, staking opportunities, and APY changes.</p>
+    </div>
+
+    <div class="cta">
+      <button class="button" onclick="window.close()">Get Started</button>
+    </div>
+  </div>
+
+  <script>
+    // Mark onboarding as completed
+    chrome.storage.local.set({ onboardingCompleted: true });
+  </script>
+</body>
+</html>

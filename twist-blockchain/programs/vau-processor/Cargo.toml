@@ -1,0 +1,29 @@
+[package]
+name = "vau-processor"
+version = "0.1.0"
+description = "Verified Attention Unit Processor for TWIST Protocol"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "vau_processor"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = { workspace = true }
+anchor-spl = { workspace = true }
+solana-program = { workspace = true }
+spl-token = { workspace = true }
+spl-associated-token-account = { workspace = true }
+bond-pool-factory = { path = "../bond-pool-factory", features = ["cpi"] }
+
+[dev-dependencies]
+solana-program-test = "1.18.12"
+solana-sdk = "1.18.12"
+tokio = { version = "1", features = ["full"] }

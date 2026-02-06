@@ -1,0 +1,128 @@
+{
+  "version": "0.1.0",
+  "name": "influencer_staking",
+  "instructions": [
+    {
+      "name": "initializePool",
+      "accounts": [
+        { "name": "stakingPool", "isMut": true, "isSigner": false },
+        { "name": "influencer", "isMut": false, "isSigner": true },
+        { "name": "mint", "isMut": false, "isSigner": false },
+        { "name": "vault", "isMut": true, "isSigner": false },
+        { "name": "systemProgram", "isMut": false, "isSigner": false },
+        { "name": "tokenProgram", "isMut": false, "isSigner": false },
+        { "name": "rent", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "revenueShareBps", "type": "u16" },
+        { "name": "minStake", "type": "u64" }
+      ]
+    },
+    {
+      "name": "stakeOnInfluencer",
+      "accounts": [
+        { "name": "stakingPool", "isMut": true, "isSigner": false },
+        { "name": "stakeAccount", "isMut": true, "isSigner": false },
+        { "name": "staker", "isMut": false, "isSigner": true },
+        { "name": "stakerTokens", "isMut": true, "isSigner": false },
+        { "name": "vault", "isMut": true, "isSigner": false },
+        { "name": "tokenProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "amount", "type": "u64" }
+      ]
+    },
+    {
+      "name": "unstake",
+      "accounts": [
+        { "name": "stakingPool", "isMut": true, "isSigner": false },
+        { "name": "stakeAccount", "isMut": true, "isSigner": false },
+        { "name": "staker", "isMut": false, "isSigner": true },
+        { "name": "stakerTokens", "isMut": true, "isSigner": false },
+        { "name": "vault", "isMut": true, "isSigner": false },
+        { "name": "tokenProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "amount", "type": "u64" }
+      ]
+    },
+    {
+      "name": "claimRewards",
+      "accounts": [
+        { "name": "stakingPool", "isMut": false, "isSigner": false },
+        { "name": "stakeAccount", "isMut": true, "isSigner": false },
+        { "name": "staker", "isMut": false, "isSigner": true },
+        { "name": "stakerTokens", "isMut": true, "isSigner": false },
+        { "name": "rewardsTreasury", "isMut": true, "isSigner": false },
+        { "name": "treasuryAuthority", "isMut": false, "isSigner": false },
+        { "name": "tokenProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "StakingPool",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "influencer", "type": "publicKey" },
+          { "name": "mint", "type": "publicKey" },
+          { "name": "vault", "type": "publicKey" },
+          { "name": "totalStaked", "type": "u64" },
+          { "name": "stakerCount", "type": "u32" },
+          { "name": "revenueShareBps", "type": "u16" },
+          { "name": "minStake", "type": "u64" },
+          { "name": "totalRewardsDistributed", "type": "u64" },
+          { "name": "pendingRewards", "type": "u64" },
+          { "name": "createdAt", "type": "i64" },
+          { "name": "isActive", "type": "bool" },
+          { "name": "bump", "type": "u8" }
+        ]
+      }
+    },
+    {
+      "name": "StakeAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "staker", "type": "publicKey" },
+          { "name": "pool", "type": "publicKey" },
+          { "name": "amount", "type": "u64" },
+          { "name": "stakedAt", "type": "i64" },
+          { "name": "lastClaim", "type": "i64" },
+          { "name": "totalClaimed", "type": "u64" },
+          { "name": "pendingRewards", "type": "u64" }
+        ]
+      }
+    }
+  ],
+  "events": [
+    {
+      "name": "PoolCreated",
+      "fields": [
+        { "name": "pool", "type": "publicKey", "index": true },
+        { "name": "influencer", "type": "publicKey", "index": true },
+        { "name": "revenueShareBps", "type": "u16", "index": false },
+        { "name": "minStake", "type": "u64", "index": false }
+      ]
+    },
+    {
+      "name": "UserStaked",
+      "fields": [
+        { "name": "staker", "type": "publicKey", "index": true },
+        { "name": "influencer", "type": "publicKey", "index": true },
+        { "name": "amount", "type": "u64", "index": false },
+        { "name": "totalPoolStake", "type": "u64", "index": false }
+      ]
+    }
+  ],
+  "errors": [
+    { "code": 6000, "name": "InvalidRevenueShare", "msg": "Revenue share cannot exceed 50%" },
+    { "code": 6001, "name": "PoolInactive", "msg": "Pool is not active" },
+    { "code": 6002, "name": "BelowMinStake", "msg": "Stake amount below minimum" },
+    { "code": 6003, "name": "InsufficientStake", "msg": "Insufficient stake balance" },
+    { "code": 6004, "name": "NoStakers", "msg": "No stakers in pool" },
+    { "code": 6005, "name": "NoRewardsToClaim", "msg": "No rewards to claim" }
+  ]
+}

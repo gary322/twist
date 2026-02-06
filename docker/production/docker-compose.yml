@@ -1,0 +1,142 @@
+version: '3.8'
+
+services:
+  # Plan 1: Blockchain RPC
+  blockchain-rpc:
+    image: twist/blockchain:latest
+    environment:
+      - NODE_ENV=production
+      - SOLANA_RPC_URL=${SOLANA_RPC_URL}
+    ports:
+      - "8899:8899"
+    restart: unless-stopped
+
+  # Plan 2: Edge Workers (simulated locally)
+  edge-worker:
+    image: twist/edge-worker:latest
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "8787:8787"
+    restart: unless-stopped
+
+  # Plan 3: Auth Service
+  auth-service:
+    image: twist/auth-service:latest
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+    ports:
+      - "3001:3001"
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  # Plan 6: Publisher API
+  publisher-api:
+    image: twist/publisher-api:latest
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+    ports:
+      - "3006:3006"
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  # Plan 7: Advertiser API
+  advertiser-api:
+    image: twist/advertiser-api:latest
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+    ports:
+      - "3007:3007"
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  # Plan 8: Influencer API
+  influencer-api:
+    image: twist/influencer-api:latest
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+    ports:
+      - "3008:3008"
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  # Plan 10: Analytics
+  analytics:
+    image: twist/analytics:latest
+    environment:
+      - NODE_ENV=production
+      - CLICKHOUSE_URL=${CLICKHOUSE_URL}
+      - KAFKA_BROKERS=${KAFKA_BROKERS}
+    ports:
+      - "3010:3010"
+    depends_on:
+      - clickhouse
+      - kafka
+    restart: unless-stopped
+
+  # Infrastructure services
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=twist
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:23-alpine
+    environment:
+      - CLICKHOUSE_DB=analytics
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    restart: unless-stopped
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    environment:
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+    depends_on:
+      - zookeeper
+    restart: unless-stopped
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      - ZOOKEEPER_CLIENT_PORT=2181
+      - ZOOKEEPER_TICK_TIME=2000
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  clickhouse_data:
+
+networks:
+  default:
+    name: twist-network

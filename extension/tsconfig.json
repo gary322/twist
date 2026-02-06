@@ -1,0 +1,53 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "esnext",
+    "lib": ["ES2020", "DOM", "DOM.Iterable", "WebWorker"],
+    "jsx": "react",
+    "outDir": "./build",
+    "rootDir": "./",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "typeRoots": ["./types", "./@types", "./node_modules/@types"],
+    "types": ["chrome", "node", "jest"],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@types/*": ["./types/*"],
+      "@utils/*": ["./src/utils/*"],
+      "@config/*": ["./config/*"],
+      "@background/*": ["./background/*"],
+      "@content/*": ["./content/*"],
+      "@popup/*": ["./popup/src/*"],
+      "@options/*": ["./options/src/*"]
+    }
+  },
+  "include": [
+    "background/**/*",
+    "content/**/*",
+    "popup/src/**/*",
+    "options/src/**/*",
+    "inject/**/*",
+    "security/**/*",
+    "update/**/*",
+    "types/**/*",
+    "config/**/*",
+    "@types/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "build",
+    "dist",
+    "tests/**/*",
+    "**/*.spec.ts",
+    "**/*.test.ts",
+    "**/*.test.tsx"
+  ]
+}

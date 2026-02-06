@@ -1,0 +1,55 @@
+{
+  "manifest_version": 2,
+  "name": "TWIST - Earn While You Browse",
+  "version": "1.0.0",
+  "description": "Earn TWIST tokens for your verified active web usage",
+  "icons": {
+    "16": "../assets/icon-16.png",
+    "32": "../assets/icon-32.png",
+    "48": "../assets/icon-48.png",
+    "96": "../assets/icon-96.png",
+    "128": "../assets/icon-128.png"
+  },
+  "browser_action": {
+    "default_popup": "../popup/index.html",
+    "default_icon": {
+      "16": "../assets/icon-16.png",
+      "32": "../assets/icon-32.png"
+    },
+    "default_title": "TWIST Extension"
+  },
+  "background": {
+    "scripts": ["background-wrapper.js"],
+    "persistent": false
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["../content/inject.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
+  "permissions": [
+    "storage",
+    "alarms",
+    "notifications",
+    "webNavigation",
+    "tabs",
+    "cookies",
+    "<all_urls>"
+  ],
+  "web_accessible_resources": [
+    "../inject/vau-detector.js"
+  ],
+  "options_ui": {
+    "page": "../options/index.html",
+    "open_in_tab": true
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "extension@twist.io",
+      "strict_min_version": "89.0"
+    }
+  }
+}

@@ -1,0 +1,333 @@
+config:
+  target: "http://localhost:3000"
+  processor: "./artillery-processor.js"
+  phases:
+    # Phase 1: Warm-up
+    - duration: 120
+      arrivalRate: 10
+      name: "Warm-up"
+    
+    # Phase 2: Ramp-up load
+    - duration: 300
+      arrivalRate: 10
+      rampTo: 100
+      name: "Ramp-up"
+    
+    # Phase 3: Sustained load
+    - duration: 600
+      arrivalRate: 100
+      name: "Sustained Load"
+    
+    # Phase 4: Spike test
+    - duration: 60
+      arrivalRate: 500
+      name: "Spike Test"
+    
+    # Phase 5: Recovery
+    - duration: 300
+      arrivalRate: 50
+      name: "Recovery"
+    
+    # Phase 6: Soak test
+    - duration: 1800
+      arrivalRate: 30
+      name: "Soak Test"
+
+  payload:
+    path: "./test-data.csv"
+    fields:
+      - "userId"
+      - "influencerId"
+      - "walletAddress"
+      - "email"
+      - "username"
+  
+  variables:
+    baseApiPath: "/api"
+    stakingAmounts:
+      - 1000000000000    # 1,000 TWIST
+      - 5000000000000    # 5,000 TWIST
+      - 10000000000000   # 10,000 TWIST
+      - 50000000000000   # 50,000 TWIST
+    searchQueries:
+      - "crypto"
+      - "defi"
+      - "nft"
+      - "web3"
+      - "blockchain"
+    tiers:
+      - "BRONZE"
+      - "SILVER"
+      - "GOLD"
+      - "PLATINUM"
+
+  plugins:
+    ensure:
+      thresholds:
+        - http.response_time.p95: 1000
+        - http.response_time.p99: 2000
+        - http.codes.200: 95
+        - http.request_rate: 100
+    
+    metrics-by-endpoint:
+      useOnlyRequestNames: true
+    
+    publish-metrics:
+      - type: cloudwatch
+        region: us-east-1
+        namespace: TwistLoadTest
+
+  engines:
+    websocket:
+      - duration: 600
+        arrivalRate: 50
+
+scenarios:
+  # Scenario 1: User Authentication Flow
+  - name: "User Authentication"
+    weight: 10
+    flow:
+      - post:
+          url: "{{ baseApiPath }}/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "Test123456!"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+            - json: "$.user.id"
+              as: "userId"
+          expect:
+            - statusCode: 200
+            - contentType: json
+            - hasProperty: token
+      
+      - think: 2
+      
+      - get:
+          url: "{{ baseApiPath }}/user/profile"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+
+  # Scenario 2: Search and Browse Influencers
+  - name: "Search Influencers"
+    weight: 30
+    flow:
+      - function: "authenticateUser"
+      
+      - loop:
+          - get:
+              url: "{{ baseApiPath }}/staking/search"
+              qs:
+                query: "{{ $randomString(searchQueries) }}"
+                sortBy: "{{ $randomString(['totalStaked', 'stakerCount', 'apy']) }}"
+                limit: 20
+              headers:
+                Authorization: "Bearer {{ authToken }}"
+              expect:
+                - statusCode: 200
+                - contentType: json
+              capture:
+                - json: "$[0].id"
+                  as: "selectedInfluencerId"
+          
+          - think: 3
+          
+          - get:
+              url: "{{ baseApiPath }}/influencers/{{ selectedInfluencerId }}"
+              headers:
+                Authorization: "Bearer {{ authToken }}"
+              expect:
+                - statusCode: 200
+                - hasProperty: pool
+          
+          - think: 2
+        count: 5
+
+  # Scenario 3: Staking Operations
+  - name: "Staking Flow"
+    weight: 20
+    flow:
+      - function: "authenticateUser"
+      
+      - get:
+          url: "{{ baseApiPath }}/staking/user/stakes"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+      
+      - think: 2
+      
+      - post:
+          url: "{{ baseApiPath }}/staking/stake"
+          json:
+            influencerId: "{{ influencerId }}"
+            amount: "{{ $randomString(stakingAmounts) }}"
+            wallet: "{{ walletAddress }}"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+            - hasProperty: transactionId
+          capture:
+            - json: "$.transactionId"
+              as: "txId"
+      
+      - think: 5
+      
+      - get:
+          url: "{{ baseApiPath }}/staking/transaction/{{ txId }}/status"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+            - equals:
+                - "$.status"
+                - "confirmed"
+
+  # Scenario 4: Portfolio Management
+  - name: "Portfolio Operations"
+    weight: 15
+    flow:
+      - function: "authenticateUser"
+      
+      - parallel:
+          - get:
+              url: "{{ baseApiPath }}/staking/user/stakes"
+              headers:
+                Authorization: "Bearer {{ authToken }}"
+          
+          - get:
+              url: "{{ baseApiPath }}/analytics/portfolio/overview"
+              headers:
+                Authorization: "Bearer {{ authToken }}"
+          
+          - get:
+              url: "{{ baseApiPath }}/analytics/portfolio/history"
+              qs:
+                period: "30d"
+              headers:
+                Authorization: "Bearer {{ authToken }}"
+      
+      - think: 3
+      
+      - post:
+          url: "{{ baseApiPath }}/staking/claim"
+          json:
+            influencerId: "{{ influencerId }}"
+            wallet: "{{ walletAddress }}"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode:
+                - 200
+                - 400  # No rewards to claim
+
+  # Scenario 5: Real-time WebSocket Connection
+  - name: "WebSocket Monitoring"
+    weight: 10
+    engine: websocket
+    flow:
+      - function: "authenticateUser"
+      
+      - connect:
+          url: "ws://localhost:3000/realtime"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+      
+      - send:
+          data:
+            event: "subscribe:staking"
+            data:
+              influencerId: "{{ influencerId }}"
+      
+      - think: 30
+      
+      - send:
+          data:
+            event: "subscribe:portfolio"
+      
+      - think: 60
+      
+      - send:
+          data:
+            event: "ping"
+      
+      - think: 30
+
+  # Scenario 6: Content and Analytics
+  - name: "Content Analytics"
+    weight: 10
+    flow:
+      - function: "authenticateUser"
+      
+      - get:
+          url: "{{ baseApiPath }}/content"
+          qs:
+            status: "published"
+            limit: 20
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+      
+      - think: 2
+      
+      - get:
+          url: "{{ baseApiPath }}/analytics/content/performance"
+          qs:
+            timeRange: "7d"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+      
+      - think: 3
+      
+      - get:
+          url: "{{ baseApiPath }}/analytics/earnings"
+          qs:
+            period: "month"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+
+  # Scenario 7: API Stress Test
+  - name: "API Stress"
+    weight: 5
+    flow:
+      - function: "authenticateUser"
+      
+      - loop:
+          - parallel:
+              - get:
+                  url: "{{ baseApiPath }}/staking/search?query=test"
+                  headers:
+                    Authorization: "Bearer {{ authToken }}"
+              
+              - get:
+                  url: "{{ baseApiPath }}/influencers/trending"
+                  headers:
+                    Authorization: "Bearer {{ authToken }}"
+              
+              - get:
+                  url: "{{ baseApiPath }}/analytics/overview"
+                  headers:
+                    Authorization: "Bearer {{ authToken }}"
+              
+              - get:
+                  url: "{{ baseApiPath }}/notifications/unread"
+                  headers:
+                    Authorization: "Bearer {{ authToken }}"
+          
+          - think: 0.5
+        count: 10
+
+# Hooks for setup and teardown
+before:
+  flow:
+    - log: "Starting load test for Influencer Staking System"
+    - function: "setupTestData"
+
+after:
+  flow:
+    - log: "Load test completed"
+    - function: "generateReport"

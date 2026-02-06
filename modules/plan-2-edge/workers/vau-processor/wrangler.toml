@@ -1,0 +1,90 @@
+name = "vau-processor"
+main = "src/index.ts"
+compatibility_date = "2024-01-15"
+node_compat = true
+
+[env.development]
+name = "vau-processor-dev"
+vars = { ENVIRONMENT = "development" }
+
+[env.staging]
+name = "vau-processor-staging"
+vars = { ENVIRONMENT = "staging" }
+
+[env.production]
+name = "vau-processor-production"
+vars = { ENVIRONMENT = "production" }
+
+# KV Namespaces
+[[kv_namespaces]]
+binding = "RATE_LIMITS"
+id = "rate_limits_dev"
+
+[[kv_namespaces]]
+binding = "DEVICE_REGISTRY"
+id = "device_registry_dev"
+
+[[kv_namespaces]]
+binding = "ATTESTATION_CACHE"
+id = "attestation_cache_dev"
+
+[[kv_namespaces]]
+binding = "BLOOM_FILTERS"
+id = "bloom_filters_dev"
+
+# R2 Buckets
+[[r2_buckets]]
+binding = "AUDIT_LOGS"
+bucket_name = "twist-audit-logs-dev"
+
+[[r2_buckets]]
+binding = "ANALYTICS_DATA"
+bucket_name = "twist-analytics-dev"
+
+# Queues
+[[queues.producers]]
+binding = "VAU_QUEUE"
+queue = "vau-queue-dev"
+
+[[queues.producers]]
+binding = "REWARD_QUEUE"
+queue = "reward-queue-dev"
+
+[[queues.consumers]]
+queue = "vau-queue-dev"
+max_batch_size = 100
+max_batch_timeout = 5
+
+# Durable Objects
+[[durable_objects.bindings]]
+name = "RATE_LIMITER"
+class_name = "RateLimiter"
+script_name = "durable-objects"
+
+[[durable_objects.bindings]]
+name = "SESSION_MANAGER"
+class_name = "SessionManager"
+script_name = "durable-objects"
+
+[[durable_objects.bindings]]
+name = "VAU_AGGREGATOR"
+class_name = "VAUAggregator"
+script_name = "durable-objects"
+
+# Routes
+[[routes]]
+pattern = "api.twist.io/api/v1/vau*"
+zone_name = "twist.io"
+
+# Triggers
+[[triggers.crons]]
+cron = "0 * * * *"
+# Hourly rate limit window rotation
+
+[[triggers.crons]]
+cron = "0 0 * * 0"
+# Weekly salt rotation
+
+[[triggers.crons]]
+cron = "*/5 * * * *"
+# Metrics sync every 5 minutes

@@ -1,0 +1,14 @@
+{
+  "name": "@twist/messages",
+  "version": "1.0.0",
+  "description": "Message factory for Twist platform",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "typescript": "^5.1.3"
+  }
+}

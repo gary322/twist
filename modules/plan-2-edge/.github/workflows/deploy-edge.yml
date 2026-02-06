@@ -1,0 +1,276 @@
+name: Deploy Edge Infrastructure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'modules/plan-2-edge/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+
+env:
+  NODE_VERSION: '18'
+  TERRAFORM_VERSION: '1.6.0'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: modules/plan-2-edge/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd modules/plan-2-edge
+          npm ci
+
+      - name: Run linting
+        run: |
+          cd modules/plan-2-edge
+          npm run lint
+
+      - name: Run type checking
+        run: |
+          cd modules/plan-2-edge
+          npm run typecheck
+
+      - name: Run tests
+        run: |
+          cd modules/plan-2-edge
+          npm test -- --coverage
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./modules/plan-2-edge/coverage/lcov.info
+          flags: edge-computing
+
+      - name: Run security scan
+        run: |
+          cd modules/plan-2-edge
+          npm run security-scan
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: modules/plan-2-edge/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd modules/plan-2-edge
+          npm ci
+
+      - name: Build workers
+        run: |
+          cd modules/plan-2-edge
+          npm run build
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: worker-dist
+          path: modules/plan-2-edge/dist/
+          retention-days: 7
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: worker-dist
+          path: modules/plan-2-edge/dist/
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE }}
+          aws-region: us-east-1
+
+      - name: Terraform Init
+        env:
+          TF_WORKSPACE: ${{ github.event.inputs.environment || 'staging' }}
+        run: |
+          cd modules/plan-2-edge/terraform
+          terraform init
+
+      - name: Terraform Plan
+        env:
+          TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TF_VAR_cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TF_VAR_cloudflare_zone_id: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          TF_VAR_hmac_secret: ${{ secrets.HMAC_SECRET }}
+          TF_VAR_solana_rpc: ${{ secrets.SOLANA_RPC }}
+          TF_VAR_twist_program_id: ${{ secrets.TWIST_PROGRAM_ID }}
+          TF_VAR_pagerduty_token: ${{ secrets.PAGERDUTY_TOKEN }}
+          TF_VAR_pagerduty_routing_key: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+        run: |
+          cd modules/plan-2-edge/terraform
+          terraform plan \
+            -var-file=environments/${{ github.event.inputs.environment || 'staging' }}/terraform.tfvars \
+            -out=tfplan
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main'
+        env:
+          TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TF_VAR_cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TF_VAR_cloudflare_zone_id: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          TF_VAR_hmac_secret: ${{ secrets.HMAC_SECRET }}
+          TF_VAR_solana_rpc: ${{ secrets.SOLANA_RPC }}
+          TF_VAR_twist_program_id: ${{ secrets.TWIST_PROGRAM_ID }}
+          TF_VAR_pagerduty_token: ${{ secrets.PAGERDUTY_TOKEN }}
+          TF_VAR_pagerduty_routing_key: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+        run: |
+          cd modules/plan-2-edge/terraform
+          terraform apply tfplan
+
+      - name: Get outputs
+        id: terraform
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cd modules/plan-2-edge/terraform
+          echo "api_endpoint=$(terraform output -raw api_endpoint)" >> $GITHUB_OUTPUT
+          echo "environment=$(terraform output -raw environment)" >> $GITHUB_OUTPUT
+
+  smoke-tests:
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Run smoke tests
+        env:
+          API_ENDPOINT: ${{ needs.deploy.outputs.api_endpoint }}
+          ENVIRONMENT: ${{ needs.deploy.outputs.environment }}
+        run: |
+          cd modules/plan-2-edge
+          npm run test:smoke -- --env=$ENVIRONMENT
+
+      - name: Health check
+        run: |
+          max_attempts=30
+          attempt=0
+          
+          while [ $attempt -lt $max_attempts ]; do
+            if curl -sf "${{ needs.deploy.outputs.api_endpoint }}/health" > /dev/null; then
+              echo "Health check passed"
+              exit 0
+            fi
+            
+            echo "Attempt $((attempt + 1))/$max_attempts failed, retrying..."
+            sleep 10
+            attempt=$((attempt + 1))
+          done
+          
+          echo "Health check failed after $max_attempts attempts"
+          exit 1
+
+  update-monitoring:
+    needs: [deploy, smoke-tests]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update Grafana dashboards
+        env:
+          GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }}
+          GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
+        run: |
+          cd modules/plan-2-edge/monitoring
+          
+          for dashboard in dashboards/*.json; do
+            curl -X POST \
+              -H "Authorization: Bearer $GRAFANA_API_KEY" \
+              -H "Content-Type: application/json" \
+              -d @"$dashboard" \
+              "$GRAFANA_URL/api/dashboards/db"
+          done
+
+      - name: Update alert rules
+        env:
+          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_URL }}
+          PROMETHEUS_API_KEY: ${{ secrets.PROMETHEUS_API_KEY }}
+        run: |
+          cd modules/plan-2-edge/monitoring
+          
+          curl -X POST \
+            -H "Authorization: Bearer $PROMETHEUS_API_KEY" \
+            -H "Content-Type: application/yaml" \
+            --data-binary @alerts/edge-alerts.yaml \
+            "$PROMETHEUS_URL/api/v1/rules"
+
+  notify:
+    needs: [deploy, smoke-tests, update-monitoring]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Notify Slack
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: |
+            Edge Infrastructure Deployment
+            Environment: ${{ github.event.inputs.environment || 'staging' }}
+            Status: ${{ job.status }}
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Create deployment record
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.sha,
+              environment: '${{ github.event.inputs.environment || 'staging' }}',
+              description: 'Edge infrastructure deployment',
+              auto_merge: false,
+              required_contexts: []
+            });

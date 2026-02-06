@@ -1,0 +1,22 @@
+[package]
+name = "twist-bridge"
+version = "0.1.0"
+description = "TWIST cross-chain bridge program"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "twist_bridge"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = { workspace = true }
+anchor-spl = { workspace = true }
+solana-program = { workspace = true }
+# wormhole-anchor-sdk = { workspace = true } # Temporarily disabled due to version conflicts

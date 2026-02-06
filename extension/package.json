@@ -1,0 +1,74 @@
+{
+  "name": "@twist/browser-extension",
+  "version": "2.0.0",
+  "description": "TWIST Browser Extension - Earn & stake TWIST tokens",
+  "private": true,
+  "scripts": {
+    "dev": "webpack --mode development --watch",
+    "build": "webpack --mode production",
+    "build:chrome": "BROWSER=chrome npm run build",
+    "build:firefox": "BROWSER=firefox npm run build",
+    "build:safari": "BROWSER=safari npm run build",
+    "test": "jest --config jest.config.js",
+    
+    "test:coverage": "jest --coverage",
+    "lint": "eslint . --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf build dist",
+    "package": "npm run build && ./scripts/build-extension.sh"
+  },
+  "dependencies": {
+    "@solana/wallet-adapter-react": "^0.15.0",
+    "@solana/wallet-adapter-react-ui": "^0.9.0",
+    "@solana/wallet-adapter-wallets": "^0.19.0",
+    "@solana/web3.js": "^1.87.0",
+    "clsx": "^2.0.0",
+    "lucide-react": "^0.263.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/chrome": "^0.0.246",
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "ajv": "^8.17.1",
+    "copy-webpack-plugin": "^11.0.0",
+    "css-loader": "^6.8.0",
+    "eslint": "^8.0.0",
+    "eslint-plugin-react": "^7.33.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "html-webpack-plugin": "^5.5.0",
+    "identity-obj-proxy": "^3.0.0",
+    "jest": "^29.6.0",
+    "jest-chrome": "^0.8.0",
+    "jest-environment-jsdom": "^29.6.0",
+    "mini-css-extract-plugin": "^2.7.0",
+    "style-loader": "^3.3.0",
+    "ts-jest": "^29.1.0",
+    "ts-loader": "^9.4.0",
+    "typescript": "^5.0.0",
+    "webpack": "^5.88.0",
+    "webpack-cli": "^5.1.0",
+    "webpack-merge": "^5.9.0"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "jsdom",
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setup.ts"
+    ],
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/src/$1",
+      "^@background/(.*)$": "<rootDir>/background/$1",
+      "^@content/(.*)$": "<rootDir>/content/$1",
+      "^@popup/(.*)$": "<rootDir>/popup/src/$1"
+    }
+  }
+}

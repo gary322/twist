@@ -1,0 +1,64 @@
+{
+  "mainnet": {
+    "rpcUrl": "https://api.mainnet-beta.solana.com",
+    "programId": "TWSTxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "whirlpoolAddress": "WHRLxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "maxDailyBuyback": 50000,
+    "buybackThresholdPercent": 97,
+    "minBuybackAmount": 100,
+    "maxBuybackAmount": 5000,
+    "checkIntervalMs": 60000,
+    "maxSlippagePercent": 1.0,
+    "maxPriceImpactPercent": 2.0,
+    "gasLimitCU": 400000,
+    "priorityFeeLamports": 50000,
+    "liquidityThreshold": 100000,
+    "volumeMultiplier": 1.2,
+    "volatilityMultiplier": 0.8,
+    "aggressiveMode": true,
+    "adaptiveSizing": true
+  },
+  "devnet": {
+    "rpcUrl": "https://api.devnet.solana.com",
+    "programId": "TWSTxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "whirlpoolAddress": "WHRLxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "maxDailyBuyback": 10000,
+    "buybackThresholdPercent": 97,
+    "minBuybackAmount": 10,
+    "maxBuybackAmount": 500,
+    "checkIntervalMs": 30000,
+    "maxSlippagePercent": 2.0,
+    "maxPriceImpactPercent": 5.0,
+    "gasLimitCU": 400000,
+    "priorityFeeLamports": 10000,
+    "liquidityThreshold": 10000,
+    "volumeMultiplier": 1.0,
+    "volatilityMultiplier": 1.0,
+    "aggressiveMode": false,
+    "adaptiveSizing": true
+  },
+  "alerts": {
+    "discordWebhook": "",
+    "slackWebhook": "",
+    "emailRecipients": [],
+    "alertOnSuccess": true,
+    "alertOnError": true,
+    "alertOnDailyLimitReached": true
+  },
+  "safety": {
+    "maxConsecutiveErrors": 5,
+    "errorCooldownMs": 300000,
+    "requireOracleConsensus": true,
+    "maxOracleDivergencePercent": 5,
+    "pauseOnCircuitBreaker": true,
+    "minPoolTVL": 100000,
+    "blockedHours": []
+  },
+  "performance": {
+    "logRetentionDays": 30,
+    "metricsEnabled": true,
+    "metricsPort": 9091,
+    "saveExecutionHistory": true,
+    "historyPath": "./data/buyback_history.json"
+  }
+}

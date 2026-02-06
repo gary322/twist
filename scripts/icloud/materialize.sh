@@ -12,6 +12,7 @@ cd "$repo_root"
 max_passes=10
 retries=5
 rsync_timeout_seconds=30
+paths=()
 
 for arg in "$@"; do
   case "$arg" in
@@ -23,6 +24,9 @@ for arg in "$@"; do
       ;;
     --rsync-timeout=*)
       rsync_timeout_seconds="${arg#--rsync-timeout=}"
+      ;;
+    --path=*)
+      paths+=("${arg#--path=}")
       ;;
     --help|-h)
       cat <<'EOF'
@@ -50,8 +54,13 @@ done
 
 find_dataless_paths() {
   {
-    git ls-files --cached --others --exclude-standard -z \
-      | xargs -0 stat -f '%N%t%Sf' 2>/dev/null || true
+    if [[ "${#paths[@]}" -gt 0 ]]; then
+      git ls-files --cached --others --exclude-standard -z -- "${paths[@]}" \
+        | xargs -0 stat -f '%N%t%Sf' 2>/dev/null || true
+    else
+      git ls-files --cached --others --exclude-standard -z \
+        | xargs -0 stat -f '%N%t%Sf' 2>/dev/null || true
+    fi
   } | awk -F $'\t' '$2 ~ /dataless/ {print $1}'
 }
 
@@ -116,4 +125,11 @@ while [[ "$pass" -le "$max_passes" ]]; do
   pass="$((pass + 1))"
 done
 
-bash scripts/icloud/check.sh
+check_args=(--max=20)
+if [[ "${#paths[@]}" -gt 0 ]]; then
+  for path in "${paths[@]}"; do
+    check_args+=("--path=$path")
+  done
+fi
+
+bash scripts/icloud/check.sh "${check_args[@]}"

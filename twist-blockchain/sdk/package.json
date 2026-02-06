@@ -1,0 +1,71 @@
+{
+  "name": "@twist/sdk",
+  "version": "1.0.0",
+  "description": "TypeScript SDK for TWIST Token on Solana",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "test": "jest",
+    
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build",
+    "docs": "typedoc --out docs src/index.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/twist-protocol/twist-blockchain.git"
+  },
+  "keywords": [
+    "solana",
+    "twist",
+    "token",
+    "defi",
+    "sdk",
+    "typescript"
+  ],
+  "author": "TWIST Protocol",
+  "license": "MIT",
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.29.0",
+    "@orca-so/whirlpools-sdk": "^0.11.0",
+    "@project-serum/anchor": "^0.26.0",
+    "@pythnetwork/client": "^2.19.0",
+    "@solana/spl-token": "^0.3.9",
+    "@solana/web3.js": "^1.87.0",
+    "@switchboard-xyz/solana.js": "^3.0.0",
+    "bn.js": "^5.2.1",
+    "ethers": "^6.15.0"
+  },
+  "devDependencies": {
+    "@types/bn.js": "^5.1.5",
+    "@types/jest": "^29.5.11",
+    "@types/node": "^20.10.4",
+    "@typescript-eslint/eslint-plugin": "^6.14.0",
+    "@typescript-eslint/parser": "^6.14.0",
+    "eslint": "^8.55.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.1.0",
+    "ts-jest": "^29.1.1",
+    "tsup": "^8.0.1",
+    "typedoc": "^0.25.4",
+    "typescript": "^5.3.3"
+  },
+  "peerDependencies": {
+    "@solana/web3.js": "^1.87.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

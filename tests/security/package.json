@@ -1,0 +1,9 @@
+{
+  "name": "@twist/security-tests",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch"
+  }
+}

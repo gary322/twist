@@ -10,14 +10,18 @@ repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$repo_root"
 
 max_list=50
+paths=()
 for arg in "$@"; do
   case "$arg" in
     --max=*)
       max_list="${arg#--max=}"
       ;;
+    --path=*)
+      paths+=("${arg#--path=}")
+      ;;
     --help|-h)
       cat <<'EOF'
-Usage: bash scripts/icloud/check.sh [--max=N]
+Usage: bash scripts/icloud/check.sh [--max=N] [--path=PATH ...]
 
 Detect iCloud Drive "dataless" files on macOS. These placeholders can cause:
 - git indexing failures ("short read while indexing")
@@ -26,6 +30,10 @@ Detect iCloud Drive "dataless" files on macOS. These placeholders can cause:
 Exit codes:
   0: no dataless files detected (in scanned paths)
   1: dataless files detected
+
+Notes:
+- By default this scans files that git would consider (tracked + untracked non-ignored).
+- Use `--path=...` to limit scanning to a subtree (repeatable).
 EOF
       exit 0
       ;;
@@ -42,8 +50,13 @@ find_dataless_paths() {
   #
   # Use BSD `stat` to print: "<path><TAB><flags>" and filter for "dataless".
   {
-    git ls-files --cached --others --exclude-standard -z \
-      | xargs -0 stat -f '%N%t%Sf' 2>/dev/null || true
+    if [[ "${#paths[@]}" -gt 0 ]]; then
+      git ls-files --cached --others --exclude-standard -z -- "${paths[@]}" \
+        | xargs -0 stat -f '%N%t%Sf' 2>/dev/null || true
+    else
+      git ls-files --cached --others --exclude-standard -z \
+        | xargs -0 stat -f '%N%t%Sf' 2>/dev/null || true
+    fi
   } | awk -F $'\t' '$2 ~ /dataless/ {print $1}'
 }
 

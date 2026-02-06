@@ -52,3 +52,7 @@ temp/
 # Secrets
 secrets/
 *.secret
+
+# Local secrets files
+config/secrets.ts
+config/secrets.local.ts

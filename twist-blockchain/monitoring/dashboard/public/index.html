@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TWIST Token Monitoring Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            line-height: 1.6;
+        }
+        
+        .header {
+            background: #1a1a1a;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #333;
+        }
+        
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #00ff88;
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            padding: 2rem;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        .metric-card {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 1.5rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 255, 136, 0.1);
+        }
+        
+        .metric-card h3 {
+            font-size: 0.875rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+        }
+        
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+        
+        .metric-change {
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        
+        .metric-change.positive {
+            color: #00ff88;
+        }
+        
+        .metric-change.negative {
+            color: #ff4444;
+        }
+        
+        .chart-container {
+            grid-column: span 2;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 1.5rem;
+            height: 400px;
+        }
+        
+        .alert-section {
+            grid-column: span 3;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 1.5rem;
+        }
+        
+        .alert-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            background: #222;
+            border-radius: 6px;
+            border-left: 4px solid #444;
+        }
+        
+        .alert-item.critical {
+            border-left-color: #ff4444;
+            background: rgba(255, 68, 68, 0.1);
+        }
+        
+        .alert-item.high {
+            border-left-color: #ff8844;
+            background: rgba(255, 136, 68, 0.1);
+        }
+        
+        .alert-item.medium {
+            border-left-color: #ffcc44;
+            background: rgba(255, 204, 68, 0.1);
+        }
+        
+        .alert-item.low {
+            border-left-color: #44ff88;
+            background: rgba(68, 255, 136, 0.1);
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #444;
+        }
+        
+        .status-indicator.healthy {
+            background: #00ff88;
+            box-shadow: 0 0 8px rgba(0, 255, 136, 0.5);
+        }
+        
+        .status-indicator.degraded {
+            background: #ffcc44;
+            box-shadow: 0 0 8px rgba(255, 204, 68, 0.5);
+        }
+        
+        .status-indicator.unhealthy {
+            background: #ff4444;
+            box-shadow: 0 0 8px rgba(255, 68, 68, 0.5);
+        }
+        
+        .health-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .health-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            background: #222;
+            border-radius: 6px;
+        }
+        
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            font-size: 1.25rem;
+            color: #666;
+        }
+        
+        .connection-status {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            padding: 0.5rem 1rem;
+            background: #222;
+            border: 1px solid #333;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                padding: 1rem;
+            }
+            
+            .chart-container {
+                grid-column: span 1;
+                height: 300px;
+            }
+            
+            .alert-section {
+                grid-column: span 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>TWIST Token Monitoring Dashboard</h1>
+    </div>
+    
+    <div id="app" class="loading">
+        <div>Connecting to monitoring service...</div>
+    </div>
+    
+    <div class="connection-status" id="connectionStatus">
+        <div class="status-indicator" id="connectionIndicator"></div>
+        <span id="connectionText">Disconnected</span>
+    </div>
+    
+    <script>
+        const socket = io();
+        let priceChart, volumeChart;
+        let metricsData = {};
+        
+        // Initialize connection
+        socket.on('connect', () => {
+            console.log('Connected to monitoring service');
+            updateConnectionStatus('connected');
+            socket.emit('subscribe', ['price', 'volume', 'tvl', 'alerts']);
+        });
+        
+        socket.on('disconnect', () => {
+            console.log('Disconnected from monitoring service');
+            updateConnectionStatus('disconnected');
+        });
+        
+        socket.on('metrics:initial', (data) => {
+            metricsData = data;
+            initializeDashboard();
+        });
+        
+        socket.on('metrics:update', (data) => {
+            metricsData = data;
+            updateMetrics();
+        });
+        
+        function updateConnectionStatus(status) {
+            const indicator = document.getElementById('connectionIndicator');
+            const text = document.getElementById('connectionText');
+            
+            if (status === 'connected') {
+                indicator.className = 'status-indicator healthy';
+                text.textContent = 'Connected';
+            } else {
+                indicator.className = 'status-indicator unhealthy';
+                text.textContent = 'Disconnected';
+            }
+        }
+        
+        function formatNumber(num, decimals = 2) {
+            if (num >= 1e9) return (num / 1e9).toFixed(decimals) + 'B';
+            if (num >= 1e6) return (num / 1e6).toFixed(decimals) + 'M';
+            if (num >= 1e3) return (num / 1e3).toFixed(decimals) + 'K';
+            return num.toFixed(decimals);
+        }
+        
+        function formatPrice(price) {
+            return '$' + price.toFixed(4);
+        }
+        
+        function formatPercent(value) {
+            const formatted = value.toFixed(2) + '%';
+            const isPositive = value >= 0;
+            const arrow = isPositive ? '↑' : '↓';
+            const className = isPositive ? 'positive' : 'negative';
+            return `<span class="metric-change ${className}">${arrow} ${formatted}</span>`;
+        }
+        
+        function initializeDashboard() {
+            const app = document.getElementById('app');
+            app.className = 'container';
+            app.innerHTML = `
+                <!-- Key Metrics -->
+                <div class="metric-card">
+                    <h3>Price</h3>
+                    <div class="metric-value" id="price">${formatPrice(metricsData.price)}</div>
+                    <div id="priceChange">${formatPercent(0)}</div>
+                </div>
+                
+                <div class="metric-card">
+                    <h3>Market Cap</h3>
+                    <div class="metric-value" id="marketCap">$${formatNumber(metricsData.marketCap)}</div>
+                    <div id="mcapChange">${formatPercent(0)}</div>
+                </div>
+                
+                <div class="metric-card">
+                    <h3>24h Volume</h3>
+                    <div class="metric-value" id="volume24h">$${formatNumber(metricsData.volume24h)}</div>
+                    <div id="volumeChange">${formatPercent(metricsData.volumeChange24h)}</div>
+                </div>
+                
+                <div class="metric-card">
+                    <h3>Total Value Locked</h3>
+                    <div class="metric-value" id="tvl">$${formatNumber(metricsData.tvl)}</div>
+                    <div id="tvlChange">${formatPercent(0)}</div>
+                </div>
+                
+                <div class="metric-card">
+                    <h3>Floor Price</h3>
+                    <div class="metric-value" id="floorPrice">${formatPrice(metricsData.floorPrice)}</div>
+                    <div>Premium: ${((metricsData.price / metricsData.floorPrice - 1) * 100).toFixed(1)}%</div>
+                </div>
+                
+                <div class="metric-card">
+                    <h3>Total Staked</h3>
+                    <div class="metric-value" id="totalStaked">${formatNumber(metricsData.totalStaked)}</div>
+                    <div>${((metricsData.totalStaked / metricsData.circulatingSupply) * 100).toFixed(1)}% of supply</div>
+                </div>
+                
+                <!-- Price Chart -->
+                <div class="chart-container">
+                    <h3 style="margin-bottom: 1rem;">Price History (24h)</h3>
+                    <canvas id="priceChart"></canvas>
+                </div>
+                
+                <!-- Volume Chart -->
+                <div class="chart-container">
+                    <h3 style="margin-bottom: 1rem;">Volume History (24h)</h3>
+                    <canvas id="volumeChart"></canvas>
+                </div>
+                
+                <!-- System Health -->
+                <div class="metric-card" style="grid-column: span 3;">
+                    <h3>System Health</h3>
+                    <div class="health-grid" id="healthGrid">
+                        <!-- Health checks will be populated here -->
+                    </div>
+                </div>
+                
+                <!-- Active Alerts -->
+                <div class="alert-section">
+                    <h3 style="margin-bottom: 1rem;">Active Alerts</h3>
+                    <div id="alertsList">
+                        <div style="color: #666; text-align: center; padding: 2rem;">No active alerts</div>
+                    </div>
+                </div>
+            `;
+            
+            initializeCharts();
+            updateHealthStatus();
+        }
+        
+        function initializeCharts() {
+            // Price Chart
+            const priceCtx = document.getElementById('priceChart').getContext('2d');
+            priceChart = new Chart(priceCtx, {
+                type: 'line',
+                data: {
+                    labels: generateTimeLabels(24),
+                    datasets: [{
+                        label: 'Price',
+                        data: generateMockPriceData(24),
+                        borderColor: '#00ff88',
+                        backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: '#333' },
+                            ticks: { color: '#888' }
+                        },
+                        y: {
+                            grid: { color: '#333' },
+                            ticks: { 
+                                color: '#888',
+                                callback: (value) => '$' + value.toFixed(4)
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Volume Chart
+            const volumeCtx = document.getElementById('volumeChart').getContext('2d');
+            volumeChart = new Chart(volumeCtx, {
+                type: 'bar',
+                data: {
+                    labels: generateTimeLabels(24),
+                    datasets: [{
+                        label: 'Volume',
+                        data: generateMockVolumeData(24),
+                        backgroundColor: '#4488ff',
+                        borderColor: '#4488ff',
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: '#333' },
+                            ticks: { color: '#888' }
+                        },
+                        y: {
+                            grid: { color: '#333' },
+                            ticks: { 
+                                color: '#888',
+                                callback: (value) => '$' + formatNumber(value)
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateMetrics() {
+            // Update metric values
+            document.getElementById('price').textContent = formatPrice(metricsData.price);
+            document.getElementById('marketCap').textContent = '$' + formatNumber(metricsData.marketCap);
+            document.getElementById('volume24h').textContent = '$' + formatNumber(metricsData.volume24h);
+            document.getElementById('tvl').textContent = '$' + formatNumber(metricsData.tvl);
+            document.getElementById('floorPrice').textContent = formatPrice(metricsData.floorPrice);
+            document.getElementById('totalStaked').textContent = formatNumber(metricsData.totalStaked);
+            
+            // Update volume change
+            document.getElementById('volumeChange').innerHTML = formatPercent(metricsData.volumeChange24h);
+            
+            // Update charts with new data point
+            if (priceChart) {
+                priceChart.data.datasets[0].data.push(metricsData.price);
+                priceChart.data.datasets[0].data.shift();
+                priceChart.update('none');
+            }
+            
+            if (volumeChart) {
+                volumeChart.data.datasets[0].data.push(metricsData.volume24h / 24);
+                volumeChart.data.datasets[0].data.shift();
+                volumeChart.update('none');
+            }
+        }
+        
+        function updateHealthStatus() {
+            // Fetch health status
+            fetch('/health')
+                .then(res => res.json())
+                .then(health => {
+                    const healthGrid = document.getElementById('healthGrid');
+                    healthGrid.innerHTML = health.checks.map(check => `
+                        <div class="health-item">
+                            <div class="status-indicator ${check.status}"></div>
+                            <div>
+                                <div style="font-weight: 600;">${check.name.replace(/_/g, ' ').toUpperCase()}</div>
+                                <div style="font-size: 0.75rem; color: #888;">${check.message}</div>
+                            </div>
+                        </div>
+                    `).join('');
+                })
+                .catch(err => console.error('Failed to fetch health status:', err));
+            
+            // Fetch alerts
+            fetch('/api/alerts')
+                .then(res => res.json())
+                .then(alerts => {
+                    const alertsList = document.getElementById('alertsList');
+                    if (alerts.length === 0) {
+                        alertsList.innerHTML = '<div style="color: #666; text-align: center; padding: 2rem;">No active alerts</div>';
+                    } else {
+                        alertsList.innerHTML = alerts.map(alert => `
+                            <div class="alert-item ${alert.severity}">
+                                <div>
+                                    <div style="font-weight: 600;">${alert.type.replace(/_/g, ' ').toUpperCase()}</div>
+                                    <div>${alert.message}</div>
+                                    <div style="font-size: 0.75rem; color: #888; margin-top: 0.25rem;">
+                                        ${new Date(alert.timestamp).toLocaleString()}
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('');
+                    }
+                })
+                .catch(err => console.error('Failed to fetch alerts:', err));
+        }
+        
+        // Helper functions
+        function generateTimeLabels(hours) {
+            const labels = [];
+            const now = new Date();
+            for (let i = hours; i > 0; i--) {
+                const time = new Date(now.getTime() - i * 60 * 60 * 1000);
+                labels.push(time.getHours() + ':00');
+            }
+            return labels;
+        }
+        
+        function generateMockPriceData(points) {
+            const data = [];
+            let price = 0.05;
+            for (let i = 0; i < points; i++) {
+                price += (Math.random() - 0.5) * 0.002;
+                data.push(price);
+            }
+            return data;
+        }
+        
+        function generateMockVolumeData(points) {
+            const data = [];
+            for (let i = 0; i < points; i++) {
+                data.push(50000 + Math.random() * 150000);
+            }
+            return data;
+        }
+        
+        // Update health status every 30 seconds
+        setInterval(updateHealthStatus, 30000);
+    </script>
+</body>
+</html>

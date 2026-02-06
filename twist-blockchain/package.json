@@ -1,0 +1,59 @@
+{
+  "name": "twist-blockchain",
+  "version": "1.0.0",
+  "description": "TWIST Token Blockchain Infrastructure",
+  "private": true,
+  "scripts": {
+    "build": "./scripts/deploy/01-build.sh",
+    "deploy:devnet": "./scripts/deploy/02-deploy-devnet.sh",
+    "initialize": "ts-node ./scripts/deploy/03-initialize.ts",
+    "deploy:mainnet": "./scripts/deploy/06-deploy-mainnet.sh",
+    "test": "anchor test",
+    "test:unit": "cargo test",
+    "test:integration": "ts-node tests/integration/*.test.ts",
+    "test:security": "ts-node tests/economic_attacks.test.ts",
+    "monitoring": "ts-node monitoring/index.ts",
+    "monitoring:dev": "nodemon --watch monitoring --ext ts --exec ts-node monitoring/index.ts",
+    "buyback-bot": "ts-node bots/buyback-bot/index.ts",
+    "arbitrage-monitor": "ts-node bots/arbitrage-monitor/index.ts",
+    "market-maker": "ts-node bots/market-maker/index.ts",
+    "sdk:build": "cd sdk && npm run build",
+    "sdk:test": "cd sdk && npm test",
+    "lint": "prettier --write \"**/*.{ts,js,json}\" && cargo fmt --all",
+    "clean": "rm -rf target node_modules sdk/node_modules"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.29.0",
+    "@orca-so/whirlpools-sdk": "^0.11.0",
+    "@project-serum/anchor": "^0.26.0",
+    "@pythnetwork/client": "^2.19.0",
+    "@solana/spl-token": "^0.3.9",
+    "@solana/web3.js": "^1.87.6",
+    "@sqds/multisig": "^2.1.0",
+    "@switchboard-xyz/solana.js": "^3.0.0",
+    "axios": "^1.6.2",
+    "bn.js": "^5.2.1",
+    "chart.js": "^4.4.1",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "nodemailer": "^6.9.7",
+    "prom-client": "^15.0.0",
+    "socket.io": "^4.6.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.10.4",
+    "@types/nodemailer": "^6.4.14",
+    "@types/uuid": "^9.0.7",
+    "chai": "^4.3.10",
+    "mocha": "^10.2.0",
+    "nodemon": "^3.0.2",
+    "prettier": "^3.1.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
